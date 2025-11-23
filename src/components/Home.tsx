@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   EmojiFighter,
   PlayerUpgrades,
@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { GAME_ZONES, DIFFICULTY_TIERS, RARITY_INFO } from '../constants';
 import { playSound } from '../services/soundService';
+import { signInWithGoogle, signOut, onAuthChanged } from '../services/cloudSave';
 
 interface HomeProps {
   onPlay: () => void;
@@ -49,7 +50,7 @@ interface HomeProps {
   difficulty: Difficulty;
   onSelectDifficulty: (d: Difficulty) => void;
 
-  // NEW: pilns artifacts saraksts, kas ekipēts (no App)
+  // no App.tsx: ekipētie artefakti kā pilni objekti
   equippedArtifacts: Artifact[];
 }
 
@@ -92,6 +93,13 @@ export const Home: React.FC<HomeProps> = ({
 }) => {
   const [showShop, setShowShop] = useState(false);
   const [showReferralModal, setShowReferralModal] = useState(false);
+  const [user, setUser] = useState<any>(null); // Firebase user (vai null)
+
+  // Listenē Firebase auth state
+  useEffect(() => {
+    const unsub = onAuthChanged((u) => setUser(u));
+    return unsub;
+  }, []);
 
   const upgradeCosts = {
     power: 100 * (upgrades.power + 1),
@@ -356,7 +364,50 @@ export const Home: React.FC<HomeProps> = ({
               </span>
             </div>
           </div>
+
           <div className="flex gap-2 items-center">
+            {/* LOGIN / LOGOUT BUTTON */}
+            {!user ? (
+              <button
+                onClick={async () => {
+                  playSound('ui');
+                  try {
+                    const u = await signInWithGoogle();
+                    setUser(u);
+                  } catch (err) {
+                    console.error('Login failed:', err);
+                  }
+                }}
+                className="bg-blue-900/60 hover:bg-blue-800/60 p-2 rounded-full border border-blue-700/50 transition-all active:scale-95"
+                title="Login with Google"
+              >
+                <img
+                  src="https://www.svgrepo.com/show/475656/google-color.svg"
+                  className="w-5 h-5"
+                />
+              </button>
+            ) : (
+              <button
+                onClick={async () => {
+                  playSound('ui');
+                  await signOut();
+                  setUser(null);
+                }}
+                className="flex items-center gap-1 bg-slate-800/80 hover:bg-slate-700 px-2 py-1 rounded-full border border-slate-600 transition-all active:scale-95"
+                title="Logout"
+              >
+                {user.photoURL && (
+                  <img
+                    src={user.photoURL}
+                    className="w-5 h-5 rounded-full border border-slate-500"
+                  />
+                )}
+                <span className="text-[10px] text-slate-200 font-bold">
+                  {user.displayName ? user.displayName.split(' ')[0] : 'Logout'}
+                </span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 playSound('ui');
@@ -583,7 +634,7 @@ export const Home: React.FC<HomeProps> = ({
                 </div>
               </div>
 
-              {/* Equipped Artifacts strip (glow by rarity) */}
+              {/* Equipped Artifacts strip */}
               {equippedArtifacts.length > 0 && (
                 <div className="mt-1 mb-2 w-full max-w-xs mx-auto bg-slate-900/80 border border-slate-700 rounded-2xl px-2 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
                   <span className="text-[9px] uppercase text-slate-400 font-bold mr-1">
