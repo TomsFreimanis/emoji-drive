@@ -10,7 +10,7 @@ import {
   ZoneModifier,
   Artifact,
 } from '../types';
-import { Heart, Zap, Coins, Skull, AlertTriangle } from 'lucide-react';
+import { Heart, Zap, Coins, Skull, AlertTriangle, Box } from 'lucide-react';
 import { Button } from './ui/Button';
 import { playSound } from './services/soundService';
 import { saveGameResult } from './services/firebaseService';
@@ -49,6 +49,7 @@ interface Bullet {
   color: string;
   isHoming?: boolean;
   shape: 'circle' | 'square' | 'ellipse';
+  radius?: number;
 }
 
 interface FloatingText {
@@ -60,12 +61,6 @@ interface FloatingText {
   vy: number;
   size: number;
 }
-
-// ==== FIKSĒTS SPĒLES LAUKUMS (world space) ====
-// Viss game logic strādā šajā izmērā, bet uz ekrāna tas tiek
-// pielāgots ar scale, tāpēc uz mazā telefona viss izskatās mazāks.
-const WORLD_WIDTH = 800;
-const WORLD_HEIGHT = Math.floor((16 / 9) * WORLD_WIDTH); // apm. 1422
 
 export const BattleArena: React.FC<BattleArenaProps> = ({
   fighter,
@@ -99,26 +94,11 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
   }, [fighter, upgrades, zone, difficulty, onGameOver, equippedArtifacts]);
 
   const gameState = useRef({
-    player: { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, vx: 0, vy: 0 },
+    player: { x: 0, y: 0, vx: 0, vy: 0 },
     enemies: [] as Enemy[],
-    particles: [] as {
-      x: number;
-      y: number;
-      vx: number;
-      vy: number;
-      life: number;
-      color: string;
-      size: number;
-    }[],
+    particles: [] as { x: number; y: number; vx: number; vy: number; life: number; color: string; size: number }[],
     bullets: [] as Bullet[],
-    items: [] as {
-      x: number;
-      y: number;
-      type: 'RATE' | 'MULTI' | 'GOLD' | 'HEAL';
-      icon: string;
-      life: number;
-      val?: number;
-    }[],
+    items: [] as { x: number; y: number; type: 'RATE' | 'MULTI' | 'GOLD' | 'HEAL'; icon: string; life: number; val?: number }[],
     floatingTexts: [] as FloatingText[],
     lastShot: 0,
     lastShieldRegen: 0,
@@ -141,7 +121,18 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
     currentMaxHp: 100,
   });
 
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const joystickState = useRef({ active: false, dx: 0, dy: 0 });
+  const joystickCenter = useRef({ x: 0, y: 0 });
+  const [joystickThumb, setJoystickThumb] = useState({ x: 0, y: 0 });
+
   const keys = useRef<Record<string, boolean>>({});
+
+  // Detect touch devices (for joystick)
+  useEffect(() => {
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    setIsTouchDevice(hasTouch);
+  }, []);
 
   // Init base stats, HP, shield, modifier
   useEffect(() => {
@@ -189,9 +180,8 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // sākuma pozīcija world-space vidū
-    gameState.current.player.x = WORLD_WIDTH / 2;
-    gameState.current.player.y = WORLD_HEIGHT / 2;
+    gameState.current.player.x = window.innerWidth / 2;
+    gameState.current.player.y = window.innerHeight / 2;
     gameState.current.enemies = [];
     gameState.current.bullets = [];
     gameState.current.particles = [];
@@ -240,51 +230,8 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       return Math.min(finalSpeed, 18);
     };
 
-    const handleTouch = (e: TouchEvent) => {
-      e.preventDefault();
-      const touch = e.touches[0];
-      const rect = canvas.getBoundingClientRect();
-      const screenX = touch.clientX - rect.left;
-      const screenY = touch.clientY - rect.top;
-
-      // === Ekrāna koordinātes -> world space, ņemot vērā scale ===
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
-      const worldWidth = WORLD_WIDTH;
-      const worldHeight = WORLD_HEIGHT;
-
-      const scale = Math.min(canvasWidth / worldWidth, canvasHeight / worldHeight);
-      const offsetX = (canvasWidth - worldWidth * scale) / 2;
-      const offsetY = (canvasHeight - worldHeight * scale) / 2;
-
-      const tx = (screenX - offsetX) / scale;
-      const ty = (screenY - offsetY) / scale;
-
-      const dx = tx - gameState.current.player.x;
-      const dy = ty - gameState.current.player.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      const speed = calculateSpeed(propsRef.current);
-
-      if (dist > 10) {
-        gameState.current.player.vx = (dx / dist) * speed;
-        gameState.current.player.vy = (dy / dist) * speed;
-      } else {
-        gameState.current.player.vx = 0;
-        gameState.current.player.vy = 0;
-      }
-    };
-
-    const handleTouchEnd = () => {
-      gameState.current.player.vx = 0;
-      gameState.current.player.vy = 0;
-    };
-
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
-    canvas.addEventListener('touchmove', handleTouch, { passive: false });
-    canvas.addEventListener('touchstart', handleTouch, { passive: false });
-    canvas.addEventListener('touchend', handleTouchEnd);
 
     const loop = () => {
       if (!gameState.current.isRunning) return;
@@ -301,9 +248,6 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       window.removeEventListener('resize', resize);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
-      canvas.removeEventListener('touchmove', handleTouch);
-      canvas.removeEventListener('touchstart', handleTouch);
-      canvas.removeEventListener('touchend', handleTouchEnd);
       cancelAnimationFrame(gameState.current.frameId);
     };
   }, [modifier]);
@@ -318,7 +262,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
 
       if (Date.now() - gameState.current.lastShieldRegen > 3000) {
         setShield((prev) => {
-          const max = maxShield || propsRef.current.fighter.baseStats.defense * 5;
+          const max = propsRef.current.fighter.baseStats.defense * 5;
           return Math.min(max, prev + 2);
         });
       }
@@ -337,7 +281,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       }
     }, 100);
     return () => clearInterval(interval);
-  }, [screenShake, showBossWarning, maxShield]);
+  }, [screenShake, showBossWarning]);
 
   const triggerUltimate = () => {
     if (ultimateCharge < 100) return;
@@ -370,6 +314,45 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       life: 40,
       vy: -2,
     });
+  };
+
+  const updateJoystick = (clientX: number, clientY: number) => {
+    const center = joystickCenter.current;
+    const dx = clientX - center.x;
+    const dy = clientY - center.y;
+    const maxRadius = 40;
+    const dist = Math.hypot(dx, dy) || 1;
+
+    const clampedX = dist > maxRadius ? (dx / dist) * maxRadius : dx;
+    const clampedY = dist > maxRadius ? (dy / dist) * maxRadius : dy;
+
+    joystickState.current = {
+      active: true,
+      dx: clampedX / maxRadius,
+      dy: clampedY / maxRadius,
+    };
+    setJoystickThumb({ x: clampedX, y: clampedY });
+  };
+
+  const handleJoystickStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    const rect = e.currentTarget.getBoundingClientRect();
+    joystickCenter.current = {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    };
+    updateJoystick(touch.clientX, touch.clientY);
+  };
+
+  const handleJoystickMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    updateJoystick(touch.clientX, touch.clientY);
+  };
+
+  const handleJoystickEnd = () => {
+    joystickState.current = { active: false, dx: 0, dy: 0 };
+    setJoystickThumb({ x: 0, y: 0 });
   };
 
   const endGame = async (victory: boolean) => {
@@ -412,9 +395,8 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
     const { fighter, upgrades, zone, difficulty, equippedArtifacts } = propsRef.current;
     const diffSettings = DIFFICULTY_TIERS[difficulty];
 
-    // izmanto world dimensijas, nevis canvas
-    const width = WORLD_WIDTH;
-    const height = WORLD_HEIGHT;
+    const width = canvas.width;
+    const height = canvas.height;
     const timeElapsed = state.timeElapsed;
     const maxTime = 60;
 
@@ -497,15 +479,27 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
     // Player movement
     const speed = calcSpeed(propsRef.current);
 
-    if (keys.current['ArrowUp'] || keys.current['KeyW']) state.player.vy = -speed;
-    else if (keys.current['ArrowDown'] || keys.current['KeyS']) state.player.vy = speed;
-    else if (!keys.current['ArrowUp'] && !keys.current['ArrowDown'] && Math.abs(state.player.vy) > 0.1)
-      state.player.vy *= 0.9;
+    let inputX = 0;
+    let inputY = 0;
 
-    if (keys.current['ArrowLeft'] || keys.current['KeyA']) state.player.vx = -speed;
-    else if (keys.current['ArrowRight'] || keys.current['KeyD']) state.player.vx = speed;
-    else if (!keys.current['ArrowLeft'] && !keys.current['ArrowRight'] && Math.abs(state.player.vx) > 0.1)
+    if (isTouchDevice && joystickState.current.active) {
+      inputX = joystickState.current.dx;
+      inputY = joystickState.current.dy;
+    } else {
+      if (keys.current['ArrowUp'] || keys.current['KeyW']) inputY -= 1;
+      if (keys.current['ArrowDown'] || keys.current['KeyS']) inputY += 1;
+      if (keys.current['ArrowLeft'] || keys.current['KeyA']) inputX -= 1;
+      if (keys.current['ArrowRight'] || keys.current['KeyD']) inputX += 1;
+    }
+
+    if (inputX !== 0 || inputY !== 0) {
+      const len = Math.hypot(inputX, inputY) || 1;
+      state.player.vx = (inputX / len) * speed;
+      state.player.vy = (inputY / len) * speed;
+    } else {
       state.player.vx *= 0.9;
+      state.player.vy *= 0.9;
+    }
 
     state.player.x += state.player.vx;
     state.player.y += state.player.vy;
@@ -608,10 +602,12 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       speedMod = Math.min(speedMod, 14);
 
       if (enemy.enemyClass === 'BOSS') {
+        // === Advanced boss AI with phases ===
         const hpPct = enemy.hp / enemy.maxHp;
         const centerX = width / 2;
         const targetY = height * 0.25;
 
+        // Move to arena top-center
         enemy.x += (centerX - enemy.x) * 0.02;
         enemy.y += (targetY - enemy.y) * 0.02;
 
@@ -629,7 +625,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
         if (Date.now() - enemy.lastAttack > attackCooldown) {
           enemy.lastAttack = Date.now();
 
-          // PHASE 1 — radial spread
+          // PHASE 1 — radial spread (ring you can dodge between)
           if (phase === 1) {
             const count = 10 + zone.difficulty * 2;
             const baseAngle = Date.now() / 500;
@@ -649,7 +645,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
             }
           }
 
-          // PHASE 2 — laser sweep + minions
+          // PHASE 2 — laser sweep telegraph + minions
           if (phase === 2) {
             state.events.push('LASER WARNING');
             setOverlayMessage('LASER SWEEP!');
@@ -675,6 +671,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
               }
             }, 700);
 
+            // spawn chasing minions
             for (let m = 0; m < 2; m++) {
               state.enemies.push({
                 x: enemy.x + (Math.random() * 200 - 100),
@@ -691,7 +688,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
             }
           }
 
-          // PHASE 3 — enraged dash + ring
+          // PHASE 3 — enraged dash + shockwave ring
           if (phase === 3) {
             setOverlayMessage('ENRAGED!');
             const futureX = state.player.x + state.player.vx * 10;
@@ -718,6 +715,28 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
                 });
               }
             }, 450);
+          }
+
+          // Huge slow orb the player must dodge (phases 2-3)
+          if (phase >= 2 && Math.random() < 0.35) {
+            const targetX = state.player.x;
+            const targetY = state.player.y;
+            const distToPlayer = Math.hypot(targetX - enemy.x, targetY - enemy.y) || 1;
+
+            spawnFloatingText(targetX, targetY - 40, 'DODGE!', '#f97316', 20);
+
+            state.bullets.push({
+              x: enemy.x,
+              y: enemy.y,
+              vx: ((targetX - enemy.x) / distToPlayer) * 4,
+              vy: ((targetY - enemy.y) / distToPlayer) * 4,
+              life: 320,
+              isEnemy: true,
+              damageMult: 2.4 * bossConfig.damageMultiplier,
+              color: '#facc15',
+              shape: 'circle',
+              radius: 2.2,
+            });
           }
         }
       } else {
@@ -753,8 +772,8 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
 
       // Collision with player
       if (dist < enemy.size + 20) {
-        let damage = Math.max(5, enemy.enemyClass === 'BOSS' ? 40 : 10);
-        if (enemy.enemyClass === 'EXPLODER') damage = 40 + zone.difficulty * 5;
+        let damage = Math.max(8, enemy.enemyClass === 'BOSS' ? 60 : 14);
+        if (enemy.enemyClass === 'EXPLODER') damage = 60 + zone.difficulty * 6;
         else damage += zone.difficulty * 2;
 
         takeDamage(damage);
@@ -916,8 +935,9 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       b.life--;
 
       if (b.isEnemy) {
-        if (Math.hypot(state.player.x - b.x, state.player.y - b.y) < 15) {
-          takeDamage(8);
+        const hitRadius = b.radius ? 15 * b.radius : 15;
+        if (Math.hypot(state.player.x - b.x, state.player.y - b.y) < hitRadius) {
+          takeDamage(12);
           state.bullets.splice(i, 1);
           continue;
         }
@@ -1147,40 +1167,13 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
   };
 
   const draw = (ctx: CanvasRenderingContext2D) => {
-    const canvasWidth = ctx.canvas.width;
-    const canvasHeight = ctx.canvas.height;
-
-    const worldWidth = WORLD_WIDTH;
-    const worldHeight = WORLD_HEIGHT;
-
-    // world -> screen scale (vienāds abiem virzieniem)
-    const baseScaleX = canvasWidth / worldWidth;
-    const baseScaleY = canvasHeight / worldHeight;
-    let scale = Math.min(baseScaleX, baseScaleY);
-
-    // mazliet papildus attālinām uz ļoti šauriem ekrāniem
-    if (canvasWidth < 500) {
-      scale *= 0.9;
-    }
-
-    const worldPixelWidth = worldWidth * scale;
-    const worldPixelHeight = worldHeight * scale;
-    const offsetX = (canvasWidth - worldPixelWidth) / 2;
-    const offsetY = (canvasHeight - worldPixelHeight) / 2;
+    const { width, height } = ctx.canvas;
 
     const shakeX = screenShake > 0 ? (Math.random() - 0.5) * screenShake : 0;
     const shakeY = screenShake > 0 ? (Math.random() - 0.5) * screenShake : 0;
 
     ctx.save();
     ctx.translate(shakeX, shakeY);
-
-    // iestata originu uz world laukuma augšējo kreiso stūri
-    ctx.translate(offsetX, offsetY);
-    ctx.scale(scale, scale);
-
-    // tagad viss tiek zīmēts world koordinātēs (0..WORLD_WIDTH)
-    const width = worldWidth;
-    const height = worldHeight;
 
     const gradient = ctx.createLinearGradient(0, 0, 0, height);
     gradient.addColorStop(0, zone.colors.bg);
@@ -1216,11 +1209,10 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       }
     });
 
-    // Player
     if (fighter.avatarImage && fighterImageRef.current) {
       ctx.save();
       ctx.beginPath();
-      ctx.arc(gameState.current.player.x, gameState.current.player.y, 22, 0, Math.PI * 2);
+      ctx.arc(gameState.current.player.x, gameState.current.player.y, 5, 0, Math.PI * 2);
       ctx.closePath();
       ctx.clip();
       ctx.drawImage(
@@ -1228,25 +1220,31 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
         gameState.current.player.x - 22,
         gameState.current.player.y - 22,
         44,
-        44,
+        44
       );
+
       ctx.restore();
     } else {
       ctx.font = '30px serif';
       ctx.fillText(fighter.icon, gameState.current.player.x, gameState.current.player.y);
     }
 
-    // Shield aplis
-    if (shield > 0 && maxShield > 0) {
-      const r = 28; // 22 player-radius + 6 padding
+    if (shield > 0) {
+      const r = 28; // 22 player-radius + 6 glow padding
+
       ctx.beginPath();
-      ctx.arc(gameState.current.player.x, gameState.current.player.y, r, 0, Math.PI * 2);
+      ctx.arc(
+        gameState.current.player.x,
+        gameState.current.player.y,
+        r,
+        0,
+        Math.PI * 2
+      );
       ctx.strokeStyle = `rgba(100, 200, 255, ${shield / maxShield})`;
       ctx.lineWidth = 4;
       ctx.stroke();
     }
 
-    // Enemies
     gameState.current.enemies.forEach((e) => {
       ctx.font = `${e.size}px serif`;
       ctx.fillText(e.type, e.x, e.y);
@@ -1260,19 +1258,26 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       }
     });
 
-    // Bullets
     gameState.current.bullets.forEach((b) => {
       ctx.fillStyle = b.color;
       ctx.shadowBlur = 5;
       ctx.shadowColor = b.color;
 
-      const size = b.isEnemy ? 10 : 7;
+      const size = (b.isEnemy ? 10 : 7) * (b.radius || 1);
 
       if (b.shape === 'square') {
         ctx.fillRect(b.x - size / 2, b.y - size / 2, size, size);
       } else if (b.shape === 'ellipse') {
         ctx.beginPath();
-        ctx.ellipse(b.x, b.y, size * 2, size / 2, Math.atan2(b.vy, b.vx), 0, Math.PI * 2);
+        ctx.ellipse(
+          b.x,
+          b.y,
+          size * 2,
+          size / 2,
+          Math.atan2(b.vy, b.vx),
+          0,
+          Math.PI * 2,
+        );
         ctx.fill();
       } else {
         ctx.beginPath();
@@ -1282,7 +1287,6 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       ctx.shadowBlur = 0;
     });
 
-    // Particles
     gameState.current.particles.forEach((p) => {
       ctx.fillStyle = p.color;
       ctx.globalAlpha = p.life / 30;
@@ -1292,7 +1296,6 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       ctx.globalAlpha = 1;
     });
 
-    // Floating texts
     gameState.current.floatingTexts.forEach((t) => {
       ctx.font = `bold ${t.size}px Inter`;
       ctx.fillStyle = t.color;
@@ -1329,7 +1332,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
               {shield > 0 && (
                 <div
                   className="absolute left-0 top-0 bottom-0 bg-blue-500/50 border-r-2 border-blue-400 transition-all duration-300"
-                  style={{ width: `${Math.max(0, (shield / maxShield || 1) * 100)}%` }}
+                  style={{ width: `${Math.max(0, (shield / maxShield) * 100)}%` }}
                 />
               )}
               <div className="absolute inset-0 flex items-center px-2 gap-1">
@@ -1415,6 +1418,28 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
         )}
       </div>
 
+      {/* Mobile joystick (touch only) */}
+      {isTouchDevice && (
+        <div className="absolute bottom-6 left-6 z-50 pointer-events-auto md:hidden">
+          <div
+            className="relative w-28 h-28 rounded-full bg-slate-900/70 border border-slate-600/80"
+            onTouchStart={handleJoystickStart}
+            onTouchMove={handleJoystickMove}
+            onTouchEnd={handleJoystickEnd}
+            onTouchCancel={handleJoystickEnd}
+          >
+            <div
+              className="absolute w-12 h-12 rounded-full bg-slate-700/90 border border-slate-500 shadow-lg"
+              style={{
+                left: '50%',
+                top: '50%',
+                transform: `translate(calc(-50% + ${joystickThumb.x}px), calc(-50% + ${joystickThumb.y}px))`,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Ultimate button */}
       <div className="absolute bottom-8 right-8 z-50 pointer-events-auto">
         <Button
@@ -1465,7 +1490,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
         </div>
       )}
 
-      {/* Overlay text */}
+      {/* Overlay text (ULTIMATE, KILLING SPREE, ENRAGED, etc.) */}
       {overlayMessage && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-50">
           <h1

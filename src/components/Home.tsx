@@ -269,16 +269,16 @@ export const Home: React.FC<HomeProps> = ({
       {showReferralModal && renderReferralModal()}
 
       {/* Centered mobile wrapper */}
-      <div className="relative z-10 max-w-md mx-auto flex flex-col h-[100dvh]">
+      <div className="relative z-10 w-full max-w-xl mx-auto flex flex-col h-[100dvh] px-3 sm:px-4">
         {/* Top Bar */}
-        <div className="flex justify-between items-center p-4">
+        <div className="flex justify-between items-center pt-3 pb-2">
           <div className="flex items-center gap-2">
             <div className="bg-yellow-400 p-1.5 rounded-lg shadow-lg shadow-yellow-500/20">
               <Zap className="text-slate-900 w-5 h-5" fill="currentColor" />
             </div>
             <div className="leading-tight">
-              <h1 className="text-lg font-display text-white tracking-wider">EMOJI</h1>
-              <span className="text-yellow-400 font-display text-sm tracking-widest block -mt-1">
+              <h1 className="text-base sm:text-lg font-display text-white tracking-wider">EMOJI</h1>
+              <span className="text-yellow-400 font-display text-xs sm:text-sm tracking-widest block -mt-0.5">
                 OVERDRIVE
               </span>
             </div>
@@ -335,11 +335,11 @@ export const Home: React.FC<HomeProps> = ({
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto no-scrollbar px-4 pb-32">
+        <div className="flex-1 overflow-y-auto no-scrollbar pb-32">
           <div className="flex flex-col gap-5 pt-1">
             {/* World Map Section */}
             <div className="w-full">
-              <div className="bg-slate-900/60 backdrop-blur-sm rounded-2xl p-4 border border-slate-800 shadow-xl">
+              <div className="bg-slate-900/60 backdrop-blur-sm rounded-2xl p-3 sm:p-4 border border-slate-800 shadow-xl">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">
                     Mission Select
@@ -350,8 +350,8 @@ export const Home: React.FC<HomeProps> = ({
                 </div>
 
                 {/* Map Nodes */}
-                <div className="relative w-full overflow-x-auto pb-3 no-scrollbar">
-                  <div className="flex items-center gap-5 px-2 py-2 min-w-max">
+                <div className="relative w-full overflow-x-auto pb-3 no-scrollbar touch-pan-x">
+                  <div className="flex items-center gap-4 px-2 py-2 min-w-max relative">
                     <div className="absolute top-1/2 left-4 right-4 h-1 bg-slate-800 -z-0 -translate-y-1/2 rounded-full" />
                     {GAME_ZONES.map((zone) => {
                       const isUnlocked = unlockedZones.includes(zone.id);
@@ -371,7 +371,7 @@ export const Home: React.FC<HomeProps> = ({
                           }`}
                         >
                           <div
-                            className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center text-xl shadow-lg transition-all relative overflow-hidden
+                            className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl border-2 flex items-center justify-center text-lg sm:text-xl shadow-lg transition-all relative overflow-hidden
                               ${
                                 isSelected
                                   ? 'border-yellow-400 bg-slate-800 shadow-yellow-500/20'
@@ -399,7 +399,7 @@ export const Home: React.FC<HomeProps> = ({
                       {currentZone.bossIcon}
                     </div>
                     <div className="flex-1">
-                      <div className="flex justify-between items-center">
+                      <div className="flex justify-between items-center gap-2">
                         <h3 className="text-white font-bold text-xs tracking-wide">
                           {currentZone.name}
                         </h3>
@@ -421,7 +421,7 @@ export const Home: React.FC<HomeProps> = ({
                   </div>
 
                   {/* Difficulty Select */}
-                  <div className="grid grid-cols-4 gap-1.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                     {(['EASY', 'NORMAL', 'HARD', 'EXTREME'] as Difficulty[]).map((d) => (
                       <button
                         key={d}
@@ -453,7 +453,7 @@ export const Home: React.FC<HomeProps> = ({
             {/* Hero Showcase */}
             <div className="flex flex-col items-center relative py-1">
               <div className="text-center mb-3">
-                <h2 className="text-2xl font-display text-white drop-shadow-lg">
+                <h2 className="text-xl sm:text-2xl font-display text-white drop-shadow-lg">
                   {selectedFighter.name}
                 </h2>
                 <div className="flex items-center justify-center gap-2 mt-1">
@@ -472,10 +472,10 @@ export const Home: React.FC<HomeProps> = ({
               {/* Main Character Avatar */}
               <div className="relative z-10 mb-4">
                 <div
-                  className="absolute inset-0 blur-[60px] rounded-full animate-pulse opacity-40"
+                  className="absolute inset-0 blur-[40px] sm:blur-[60px] rounded-full animate-pulse opacity-40"
                   style={{ backgroundColor: rarityInfo.color }}
                 />
-                <div className="w-32 h-32 sm:w-40 sm:h-40 relative transform transition-transform hover:scale-105 duration-300 group">
+                <div className="w-28 h-28 sm:w-32 sm:h-32 md:w-40 md:h-40 relative transform transition-transform hover:scale-105 duration-300 group">
                   {selectedFighter.avatarImage ? (
                     <img
                       src={selectedFighter.avatarImage}
@@ -484,7 +484,7 @@ export const Home: React.FC<HomeProps> = ({
                     />
                   ) : (
                     <div
-                      className={`w-full h-full flex items-center justify-center text-[4.5rem] sm:text-[5.5rem] drop-shadow-2xl bg-slate-800 rounded-3xl border-4 rotate-3 group-hover:rotate-0 transition-all ${rarityInfo.border}`}
+                      className={`w-full h-full flex items-center justify-center text-[3.5rem] sm:text-[4.5rem] md:text-[5rem] drop-shadow-2xl bg-slate-800 rounded-3xl border-4 rotate-3 group-hover:rotate-0 transition-all ${rarityInfo.border}`}
                     >
                       {selectedFighter.icon}
                     </div>
@@ -511,7 +511,7 @@ export const Home: React.FC<HomeProps> = ({
               </div>
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-2 gap-2 w-full max-w-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-sm">
                 <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50 backdrop-blur-sm">
                   <div className="space-y-2">
                     <div>
@@ -568,7 +568,7 @@ export const Home: React.FC<HomeProps> = ({
         </div>
 
         {/* Bottom Controls (fixed in wrapper) */}
-        <div className="absolute bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-white/5 p-4 pb-6 flex flex-col gap-3 z-30 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+        <div className="absolute bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-white/5 p-3 sm:p-4 pb-6 flex flex-col gap-3 z-30 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
           {/* Fighter Scroll List */}
           <div className="w-full overflow-x-auto no-scrollbar pb-1.5">
             <div className="flex gap-3 min-w-max px-1">
@@ -579,7 +579,7 @@ export const Home: React.FC<HomeProps> = ({
                   <button
                     key={f.id}
                     onClick={() => handleSelectOrBuy(f)}
-                    className={`flex-shrink-0 w-14 h-14 rounded-2xl border-2 transition-all overflow-hidden relative group flex flex-col items-center justify-center
+                    className={`flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 transition-all overflow-hidden relative group flex flex-col items-center justify-center
                       ${
                         f.unlocked
                           ? isSelected
@@ -601,7 +601,7 @@ export const Home: React.FC<HomeProps> = ({
                     {f.avatarImage ? (
                       <img src={f.avatarImage} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="text-2xl">{f.icon}</div>
+                      <div className="text-2xl sm:text-3xl">{f.icon}</div>
                     )}
                     {f.unlocked && (
                       <div
@@ -621,7 +621,7 @@ export const Home: React.FC<HomeProps> = ({
                   playSound('ui');
                   onHybrid();
                 }}
-                className="flex-shrink-0 w-14 h-14 rounded-2xl border-2 border-dashed border-slate-700 bg-slate-900/50 flex flex-col items-center justify-center gap-1 hover:border-purple-500 hover:text-purple-400 text-slate-500 transition-colors group"
+                className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-dashed border-slate-700 bg-slate-900/50 flex flex-col items-center justify-center gap-1 hover:border-purple-500 hover:text-purple-400 text-slate-500 transition-colors group"
               >
                 <Sparkles className="w-5 h-5 group-hover:animate-spin" />
                 <span className="text-[8px] font-bold uppercase">Create</span>
@@ -631,14 +631,14 @@ export const Home: React.FC<HomeProps> = ({
 
           {/* Main Action Button */}
           {isZoneLocked ? (
-            <Button variant="secondary" className="w-full opacity-50 py-3" disabled>
+            <Button variant="secondary" className="w-full opacity-50 py-3 text-xs sm:text-sm" disabled>
               <Lock className="w-4 h-4 mr-2" /> COMPLETE ZONE {unlockedZones.length} FIRST
             </Button>
           ) : (
             <Button
               variant="primary"
               size="lg"
-              className="w-full shadow-xl shadow-indigo-500/30 py-3 text-lg group"
+              className="w-full shadow-xl shadow-indigo-500/30 py-3 text-base sm:text-lg group"
               onClick={() => {
                 playSound('ui');
                 onPlay();
