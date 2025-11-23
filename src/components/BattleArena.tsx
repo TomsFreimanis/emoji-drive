@@ -48,7 +48,10 @@ interface Bullet {
   color: string;
   isHoming?: boolean;
   shape: 'circle' | 'square' | 'ellipse';
+  size?: number;      // 👈 JAUNS: ļauj lielāku lodīti
+  isMega?: boolean;   // 👈 JAUNS: atzīme mega šāvienam
 }
+
 
 interface FloatingText {
   x: number;
@@ -611,12 +614,16 @@ if (window.innerWidth < 500) {
       speedMod = Math.min(speedMod, 14);
 
       if (enemy.enemyClass === 'BOSS') {
-        const hpPct = enemy.hp / enemy.maxHp;
-        const centerX = width / 2;
-        const targetY = height * 0.25;
+  const hpPct = enemy.hp / enemy.maxHp;
+  const centerX = width / 2;
+  const targetY = height * 0.25;
 
-        enemy.x += (centerX - enemy.x) * 0.02;
-        enemy.y += (targetY - enemy.y) * 0.02;
+  // 👇 neliels “enkurs” uz arēnas centru + dash ātrums
+  enemy.x += (centerX - enemy.x) * 0.02 + (enemy.vx || 0);
+  enemy.y += (targetY - enemy.y) * 0.02 + (enemy.vy || 0);
+  enemy.vx = (enemy.vx || 0) * 0.9;
+  enemy.vy = (enemy.vy || 0) * 0.9;
+
 
         let phase = 1;
         if (hpPct < 0.7) phase = 2;
@@ -696,43 +703,45 @@ if (window.innerWidth < 500) {
 
           // PHASE 3 — enraged dash + shockwave ring
 // PHASE 3 — enraged charge (no teleport) + shockwave
+// PHASE 3 — enraged + mega šāviens + shockwave
 if (phase === 3) {
   setOverlayMessage('ENRAGED!');
-// ===== MEGA SHOT: Liela lēna insta-kill bumba =====
-if (Math.random() < 0.25) { // 25% iespēja ik ciklā
-  const angle = Math.atan2(
-    state.player.y - enemy.x,
-    state.player.x - enemy.x
-  );
 
-  state.bullets.push({
-    x: enemy.x,
-    y: enemy.y,
-    vx: Math.cos(angle) * 3,  // LĒNA bumba
-    vy: Math.sin(angle) * 3,
-    life: 700,
-    isEnemy: true,
-    damageMult: 9999,         // insta kill
-    color: "#ff0033",
-    shape: "circle",
-    size: 60                  // MILZĪGS izmērs
-  });
+  // 🔴 MEGA SHOT – lēna, liela bumba, kas insta-kill
+  if (Math.random() < 0.25) {
+    const megaAngle = Math.atan2(
+      state.player.y - enemy.y,
+      state.player.x - enemy.x
+    );
 
-  spawnFloatingText(enemy.x, enemy.y, "MEGA SHOT!", "#ff0033", 32);
-  playSound("explosion");
-}
+    state.bullets.push({
+      x: enemy.x,
+      y: enemy.y,
+      vx: Math.cos(megaAngle) * 3,   // lēni
+      vy: Math.sin(megaAngle) * 3,
+      life: 600,
+      isEnemy: true,
+      damageMult: 9999,              // insta kill loģika apakšā
+      color: '#ff0033',
+      shape: 'circle',
+      size: 40,                      // pa īstam liela
+      isMega: true,
+    });
 
-  const dx = state.player.x - enemy.x;
-  const dy = state.player.y - enemy.y;
-  const angle = Math.atan2(dy, dx);
+    spawnFloatingText(enemy.x, enemy.y, 'MEGA SHOT!', '#ff0033', 30);
+    playSound('explosion');
+  }
 
-  // boss CHARGES forward, does NOT teleport
-  const chargeSpeed = 12; 
-  enemy.vx = Math.cos(angle) * chargeSpeed;
-  enemy.vy = Math.sin(angle) * chargeSpeed;
+  // ⚡ īss “dash” virzienā uz spēlētāju
+  const dashAngle = Math.atan2(dy, dx);
+  const chargeSpeed = 10;
+  enemy.vx += Math.cos(dashAngle) * chargeSpeed;
+  enemy.vy += Math.sin(dashAngle) * chargeSpeed;
 
-  // shockwave after short delay
+  // 💥 neliels laika nobīdes shockwave ap bossu
   setTimeout(() => {
+    if (!gameState.current.isRunning) return; // ja pa to laiku spēle beigusies
+
     playSound('explosion');
     setScreenShake((prev) => prev + 4);
     createParticles(enemy.x, enemy.y, 'purple', 25);
@@ -745,13 +754,14 @@ if (Math.random() < 0.25) { // 25% iespēja ik ciklā
         vy: Math.sin(a) * 8,
         life: 260,
         isEnemy: true,
-        damageMult: 0.7 * bossConfig.damageMultiplier, // balanced
+        damageMult: 0.7 * bossConfig.damageMultiplier,
         color: '#ff00ff',
         shape: 'circle',
       });
     }
   }, 350);
 }
+
 
 
         }
@@ -1287,11 +1297,14 @@ if (Math.random() < 0.25) { // 25% iespēja ik ciklā
       }
     });
 
-    gameState.current.bullets.forEach((b) => {
-      ctx.fillStyle = b.color;
-      ctx.shadowBlur = 5;
-      ctx.shadowColor = b.color;
-      const size = b.isEnemy ? 10 : 7;
+   gameState.current.bullets.forEach((b) => {
+  ctx.fillStyle = b.color;
+  ctx.shadowBlur = 5;
+  ctx.shadowColor = b.color;
+
+  const baseSize = b.isEnemy ? 10 : 7;
+  const size = b.size ?? baseSize; // 👈 izmanto lielāku izmēru, ja ir
+
 
       if (b.shape === 'square') {
         ctx.fillRect(b.x - size / 2, b.y - size / 2, size, size);
