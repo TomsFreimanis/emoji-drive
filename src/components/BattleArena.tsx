@@ -11,8 +11,8 @@ import {
   Artifact,
 } from '../types';
 import { Button } from './ui/Button';
-import { playSound } from './services/soundService';
-import { saveGameResult } from './services/firebaseService';
+import { playSound } from '../services/soundService';
+import { saveGameResult } from '../services/firebaseService';
 import { DIFFICULTY_TIERS, ZONE_MODIFIERS, BOSS_TYPES } from '../constants';
 
 interface BattleArenaProps {
@@ -726,28 +726,35 @@ if (phase === 3) {
 
         }
       } else {
-        if (enemy.enemyClass === 'SHOOTER') {
-          speedMod *= 0.7;
-          if (dist < 350 && dist > 200) speedMod = 0;
-          if (dist < 200) speedMod = -1.5;
+       if (enemy.enemyClass === 'SHOOTER') {
+  speedMod *= 0.7;
+  if (dist < 350 && dist > 200) speedMod = 0;
+  if (dist < 200) speedMod = -1.5;
 
-          const shootDelay = Math.max(800, 3000 - zone.difficulty * 250);
-          if (Date.now() - enemy.lastAttack > shootDelay) {
-            playSound('shoot');
-            state.bullets.push({
-              x: enemy.x,
-              y: enemy.y,
-              vx: (dx / dist) * (5 + zone.difficulty),
-              vy: (dy / dist) * (5 + zone.difficulty),
-              life: 120,
-              isEnemy: true,
-              damageMult: 1,
-              color: '#fbbf24',
-              shape: 'circle',
-            });
-            enemy.lastAttack = Date.now();
-          }
-        }
+  const shootDelay = Math.max(800, 3000 - zone.difficulty * 250);
+
+  // ✅ šauj tikai tad, kad pats monstrs ir iekšā redzamajā arenā
+  const isInsideArena =
+    enemy.x > 0 && enemy.x < width &&
+    enemy.y > 0 && enemy.y < height;
+
+  if (isInsideArena && Date.now() - enemy.lastAttack > shootDelay) {
+    playSound('shoot');
+    state.bullets.push({
+      x: enemy.x,
+      y: enemy.y,
+      vx: (dx / dist) * (5 + zone.difficulty),
+      vy: (dy / dist) * (5 + zone.difficulty),
+      life: 120,
+      isEnemy: true,
+      damageMult: 1,
+      color: '#fbbf24',
+      shape: 'circle',
+    });
+    enemy.lastAttack = Date.now();
+  }
+}
+
 
         enemy.vx = (dx / dist) * speedMod;
         enemy.vy = (dy / dist) * speedMod;

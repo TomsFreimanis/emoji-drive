@@ -2,9 +2,9 @@
 import React, { useState } from 'react';
 import { EmojiFighter, HybridResult } from '../types';
 import { Button } from './ui/Button';
-import { createHybrid } from './services/geminiService';
+import { createHybrid } from '../services/geminiService';
 import { Sparkles, TestTube, Coins, AlertCircle, Trash2, Plus, Star } from 'lucide-react';
-import { playSound } from './services/soundService';
+import { playSound } from '../services/soundService';
 import { RARITY_INFO } from '../constants';
 
 interface HybridLabProps {

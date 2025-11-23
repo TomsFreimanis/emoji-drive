@@ -1,5 +1,13 @@
-import React, { useState } from 'react';
-import { EmojiFighter, PlayerUpgrades, Zone, WeaponType, Difficulty } from '../types';
+import React, { useState, useMemo } from 'react';
+import {
+  EmojiFighter,
+  PlayerUpgrades,
+  Zone,
+  WeaponType,
+  Difficulty,
+  Artifact,
+  Rarity,
+} from '../types';
 import { Button } from './ui/Button';
 import {
   Zap,
@@ -19,7 +27,7 @@ import {
   Briefcase,
 } from 'lucide-react';
 import { GAME_ZONES, DIFFICULTY_TIERS, RARITY_INFO } from '../constants';
-import { playSound } from './services/soundService';
+import { playSound } from '../services/soundService';
 
 interface HomeProps {
   onPlay: () => void;
@@ -40,6 +48,9 @@ interface HomeProps {
   referralClaimed: boolean;
   difficulty: Difficulty;
   onSelectDifficulty: (d: Difficulty) => void;
+
+  // NEW: pilns artifacts saraksts, kas ekipēts (no App)
+  equippedArtifacts: Artifact[];
 }
 
 const WEAPON_INFO: Record<WeaponType, { name: string; desc: string }> = {
@@ -48,6 +59,14 @@ const WEAPON_INFO: Record<WeaponType, { name: string; desc: string }> = {
   SNIPER: { name: 'Sniper', desc: 'Long range, high damage.' },
   RAPID: { name: 'Rapid', desc: 'High fire rate, low accuracy.' },
   HOMING: { name: 'Homing', desc: 'Projectiles seek enemies.' },
+};
+
+const RARITY_RANK: Record<Rarity, number> = {
+  COMMON: 0,
+  RARE: 1,
+  EPIC: 2,
+  LEGENDARY: 3,
+  MYTHIC: 4,
 };
 
 export const Home: React.FC<HomeProps> = ({
@@ -69,6 +88,7 @@ export const Home: React.FC<HomeProps> = ({
   referralClaimed,
   difficulty,
   onSelectDifficulty,
+  equippedArtifacts,
 }) => {
   const [showShop, setShowShop] = useState(false);
   const [showReferralModal, setShowReferralModal] = useState(false);
@@ -93,6 +113,59 @@ export const Home: React.FC<HomeProps> = ({
       onBuyFighter(f);
     }
   };
+
+  // ======== TOTAL BUILD STATS (fighter + upgrades + gear) ========
+  const totalStats = useMemo(() => {
+    const basePower = selectedFighter.baseStats.power ?? 0;
+    const baseSpeed = selectedFighter.baseStats.speed ?? 0;
+
+    const artifactTotals = equippedArtifacts.reduce(
+      (acc, art) => {
+        const s: any = (art as any).stats || {};
+        acc.power += s.power ?? 0;
+        acc.speed += s.speed ?? 0;
+        acc.health += s.health ?? s.defense ?? 0;
+        acc.fireRate += s.fireRate ?? 0;
+        acc.lifeSteal += s.lifeSteal ?? 0;
+        acc.critChance += s.critChance ?? 0;
+        acc.goldMult += s.goldMult ?? 0;
+        return acc;
+      },
+      {
+        power: 0,
+        speed: 0,
+        health: 0,
+        fireRate: 0,
+        lifeSteal: 0,
+        critChance: 0,
+        goldMult: 0,
+      },
+    );
+
+    return {
+      power: basePower + upgrades.power * 1 + artifactTotals.power * 10,
+      speed: baseSpeed + upgrades.speed * 1 + artifactTotals.speed * 10,
+      health: 100 + upgrades.health * 25 + artifactTotals.health * 80,
+      fireRate: 1 + upgrades.fireRate * 0.08 + artifactTotals.fireRate * 0.5,
+      lifeSteal: artifactTotals.lifeSteal,
+      critChance: artifactTotals.critChance,
+      goldMult: 1 + artifactTotals.goldMult,
+    };
+  }, [selectedFighter, upgrades, equippedArtifacts]);
+
+  const totalPowerScore = useMemo(() => {
+    return Math.round(
+      totalStats.power * 8 +
+        totalStats.health * 0.25 +
+        totalStats.fireRate * 12 +
+        totalStats.speed * 5 +
+        (totalStats.critChance || 0) * 50 +
+        (totalStats.lifeSteal || 0) * 60,
+    );
+  }, [totalStats]);
+
+  const powerBar = Math.max(1, Math.min(10, Math.round(totalStats.power)));
+  const speedBar = Math.max(1, Math.min(10, Math.round(totalStats.speed)));
 
   const renderReferralModal = () => (
     <div className="fixed inset-0 z-[60] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -470,7 +543,7 @@ export const Home: React.FC<HomeProps> = ({
               </div>
 
               {/* Main Character Avatar */}
-              <div className="relative z-10 mb-4">
+              <div className="relative z-10 mb-2 sm:mb-3">
                 <div
                   className="absolute inset-0 blur-[40px] sm:blur-[60px] rounded-full animate-pulse opacity-40"
                   style={{ backgroundColor: rarityInfo.color }}
@@ -510,22 +583,69 @@ export const Home: React.FC<HomeProps> = ({
                 </div>
               </div>
 
+              {/* Equipped Artifacts strip (glow by rarity) */}
+              {equippedArtifacts.length > 0 && (
+                <div className="mt-1 mb-2 w-full max-w-xs mx-auto bg-slate-900/80 border border-slate-700 rounded-2xl px-2 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
+                  <span className="text-[9px] uppercase text-slate-400 font-bold mr-1">
+                    Gear
+                  </span>
+                  {equippedArtifacts.map((a) => {
+                    const rInfo = RARITY_INFO[a.rarity || 'COMMON'];
+                    const rank = RARITY_RANK[a.rarity || 'COMMON'];
+                    return (
+                      <div
+                        key={a.id}
+                        className={`
+                          relative w-8 h-8 rounded-xl flex items-center justify-center text-lg border ${rInfo.border}
+                          ${
+                            rank >= 2
+                              ? 'shadow-[0_0_15px_rgba(129,140,248,0.7)] animate-[pulse_1.6s_ease-in-out_infinite]'
+                              : ''
+                          }
+                        `}
+                      >
+                        {rank >= 1 && (
+                          <div
+                            className={`absolute inset-0 rounded-xl blur-md opacity-50 ${rInfo.color.replace(
+                              'text',
+                              'bg',
+                            )}`}
+                          />
+                        )}
+                        <span className="relative z-10 drop-shadow">{a.icon}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Stats Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-sm">
+                {/* TOTAL BUILD STATS */}
                 <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50 backdrop-blur-sm">
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="text-[9px] text-slate-400 font-bold uppercase">
+                      Build Power
+                    </div>
+                    <div className="text-[11px] text-yellow-300 font-semibold">
+                      {totalPowerScore.toLocaleString()}{' '}
+                      <span className="text-[9px] text-slate-400">BP</span>
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     <div>
                       <div className="flex justify-between text-[9px] text-slate-400 font-bold uppercase mb-1">
-                        Power
+                        <span>Damage</span>
+                        <span className="text-[9px] text-slate-300">
+                          {totalStats.power.toFixed(1)}
+                        </span>
                       </div>
                       <div className="flex gap-0.5 h-1.5">
                         {Array.from({ length: 10 }).map((_, i) => (
                           <div
                             key={i}
                             className={`flex-1 rounded-full ${
-                              i < selectedFighter.baseStats.power
-                                ? 'bg-red-500'
-                                : 'bg-slate-700'
+                              i < powerBar ? 'bg-red-500' : 'bg-slate-700'
                             }`}
                           />
                         ))}
@@ -533,16 +653,17 @@ export const Home: React.FC<HomeProps> = ({
                     </div>
                     <div>
                       <div className="flex justify-between text-[9px] text-slate-400 font-bold uppercase mb-1">
-                        Speed
+                        <span>Speed</span>
+                        <span className="text-[9px] text-slate-300">
+                          {totalStats.speed.toFixed(1)}
+                        </span>
                       </div>
                       <div className="flex gap-0.5 h-1.5">
                         {Array.from({ length: 10 }).map((_, i) => (
                           <div
                             key={i}
                             className={`flex-1 rounded-full ${
-                              i < selectedFighter.baseStats.speed
-                                ? 'bg-blue-500'
-                                : 'bg-slate-700'
+                              i < speedBar ? 'bg-blue-500' : 'bg-slate-700'
                             }`}
                           />
                         ))}
@@ -551,6 +672,7 @@ export const Home: React.FC<HomeProps> = ({
                   </div>
                 </div>
 
+                {/* Ability + extra stats */}
                 <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50 backdrop-blur-sm flex flex-col justify-center">
                   <p className="text-[9px] text-slate-400 uppercase font-bold mb-1">
                     Special Ability
@@ -561,6 +683,31 @@ export const Home: React.FC<HomeProps> = ({
                   <p className="text-[9px] text-slate-500 leading-tight mt-1 italic">
                     "{selectedFighter.description}"
                   </p>
+
+                  <div className="mt-2 grid grid-cols-3 gap-1 text-[9px] text-slate-300">
+                    <div className="flex flex-col">
+                      <span className="text-slate-500 uppercase">HP</span>
+                      <span>{Math.round(totalStats.health)}</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-slate-500 uppercase">Fire Rate</span>
+                      <span>{totalStats.fireRate.toFixed(2)}x</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-slate-500 uppercase">Gold</span>
+                      <span>{Math.round(totalStats.goldMult * 100)}%</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-slate-500 uppercase">Crit</span>
+                      <span>
+                        {totalStats.critChance ? Math.round(totalStats.critChance * 100) : 0}%
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-slate-500 uppercase">Vamp</span>
+                      <span>{totalStats.lifeSteal || 0}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Trophy, History, ArrowLeft, Crown, Calendar } from 'lucide-react';
 import { Button } from './ui/Button';
-import { fetchHistory, fetchLeaderboard } from './services/firebaseService';
+import { fetchHistory, fetchLeaderboard } from '../services/firebaseService';
 import { LeaderboardEntry, HistoryEntry } from '../types';
 
 interface LeaderboardProps {

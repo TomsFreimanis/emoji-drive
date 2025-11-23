@@ -1,5 +1,5 @@
 
-import { GameResult, LeaderboardEntry, HistoryEntry, Zone, EmojiFighter } from '../../types';
+import { GameResult, LeaderboardEntry, HistoryEntry, Zone, EmojiFighter } from '../types';
 
 // --- CONFIGURATION ---
 // Set to FALSE to use real Firebase. Set to TRUE for instant demo mode (localStorage).

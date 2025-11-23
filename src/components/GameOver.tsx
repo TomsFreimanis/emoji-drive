@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { GameResult } from '../types';
 import { Button } from './ui/Button';
 import { Share2, RefreshCw, Home as HomeIcon, MessageSquare, Coins, Trophy, SkipForward } from 'lucide-react';
-import { getBattleCommentary } from './services/geminiService';
+import { getBattleCommentary } from '../services/geminiService';
 
 interface GameOverProps {
   result: GameResult;

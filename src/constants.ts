@@ -56,21 +56,21 @@ export const ARTIFACTS: Artifact[] = [
   // Common
   { id: 'bandage', name: 'Sticky Bandage', icon: '🩹', description: '+2 HP per kill', rarity: 'COMMON', stats: { lifeSteal: 2 } },
   { id: 'sneakers', name: 'Old Sneakers', icon: '👟', description: '+5% Speed', rarity: 'COMMON', stats: { speed: 0.05 } },
-  { id: 'rock', name: 'Pet Rock', name: 'Pet Rock', icon: '🪨', description: '+10% Defense', rarity: 'COMMON', stats: { defense: 0.1 } },
+  { id: 'rock', name: 'Pet Rock', name: 'Pet Rock', icon: '🐒', description: '+10% Defense', rarity: 'COMMON', stats: { defense: 0.1 } },
 
   // Rare
   { id: 'magnet', name: 'Gold Magnet', icon: '🧲', description: '+20% Gold Earned', rarity: 'RARE', stats: { goldMult: 0.2 } },
   { id: 'scope', name: 'Red Dot', icon: '🔭', description: '+10% Crit Chance', rarity: 'RARE', stats: { critChance: 0.1 } },
-  { id: 'protein', name: 'Alien Shake', icon: '🥤', description: '+15% Power', rarity: 'RARE', stats: { power: 0.15 } },
+  { id: 'protein', name: 'Alien Shake', icon: '🤹🏾‍♂️', description: '+15% Power', rarity: 'RARE', stats: { power: 0.15 } },
 
   // Epic
   { id: 'vamp_fangs', name: 'Vampire Fangs', icon: '🧛', description: '+10 HP per kill', rarity: 'EPIC', stats: { lifeSteal: 10 } },
-  { id: 'berserk_helm', name: 'Viking Helm', icon: '🪖', description: '+40% Power, -10% Def', rarity: 'EPIC', stats: { power: 0.4, defense: -0.1 } },
+  { id: 'berserk_helm', name: 'Viking Helm', icon: '💪🏿', description: '+40% Power, -10% Def', rarity: 'EPIC', stats: { power: 0.4, defense: -0.1 } },
   { id: 'lucky_clover', name: 'Neon Clover', icon: '🍀', description: '+25% Crit Chance', rarity: 'EPIC', stats: { critChance: 0.25 } },
 
   // Legendary
   { id: 'midas_crown', name: 'Midas Crown', icon: '👑', description: '+100% Gold Earned', rarity: 'LEGENDARY', stats: { goldMult: 1.0 } },
-  { id: 'cyber_heart', name: 'Cyber Heart', icon: '🫀', description: '+50% Max HP', rarity: 'LEGENDARY', stats: { defense: 0.5 } },
+  { id: 'cyber_heart', name: 'Cyber Heart', icon: '❤️', description: '+50% Max HP', rarity: 'LEGENDARY', stats: { defense: 0.5 } },
 
   // Mythic
   { id: 'infinity_gem', name: 'Infinity Shard', icon: '💎', description: '+50% ALL STATS', rarity: 'MYTHIC', stats: { power: 0.5, speed: 0.5, defense: 0.5, critChance: 0.2 } },
@@ -97,7 +97,7 @@ export const STARTER_FIGHTERS: EmojiFighter[] = [
     icon: '💀',
     name: 'Doom Skull',
     description: 'Balanced heavy hitter.',
-    baseStats: { speed: 4, power: 10, defense: 8 },
+    baseStats: { speed: 4, power: 8, defense: 8 },
     ability: 'Bone Zone',
     weapon: 'BLASTER',
     rarity: 'COMMON',
@@ -110,72 +110,72 @@ export const STARTER_FIGHTERS: EmojiFighter[] = [
     icon: '😎',
     name: 'Chill Shades',
     description: 'Precise shots. Keep your distance.',
-    baseStats: { speed: 8, power: 4, defense: 6 },
+    baseStats: { speed: 5, power: 10, defense: 8 },
     ability: 'Flash Freeze',
     weapon: 'SNIPER',
     rarity: 'RARE',
     unlocked: false,
-    price: 1500
+    price: 150
   },
   {
     id: 'fire',
     icon: '🔥',
     name: 'Inferno',
     description: 'Close range devastation.',
-    baseStats: { speed: 6, power: 9, defense: 3 },
+    baseStats: { speed: 6, power: 9, defense: 6 },
     ability: 'Wildfire',
     weapon: 'SHOTGUN',
     rarity: 'RARE',
     unlocked: false,
-    price: 2000
+    price: 200
   },
   {
     id: 'devil',
     icon: '😈',
     name: 'Lil Devil',
     description: 'Fast firing chaos engine.',
-    baseStats: { speed: 9, power: 5, defense: 2 },
+    baseStats: { speed: 7, power: 9, defense: 7 },
     ability: 'Chaos Dash',
     weapon: 'RAPID',
     rarity: 'EPIC',
     unlocked: false,
-    price: 2500
+    price: 250
   },
   {
     id: 'clown',
     icon: '🤡',
     name: 'Honk Honk',
     description: 'Trick shots that seek targets.',
-    baseStats: { speed: 7, power: 6, defense: 5 },
+    baseStats: { speed: 8, power: 11, defense: 8 },
     ability: 'Jester Bomb',
     weapon: 'HOMING',
     rarity: 'EPIC',
     unlocked: false,
-    price: 3000
+    price: 300
   },
   {
     id: 'robot',
     icon: '🤖',
     name: 'Mecha Bot',
     description: 'Aimbot enabled.',
-    baseStats: { speed: 5, power: 7, defense: 9 },
+    baseStats: { speed: 15, power: 17, defense: 19 },
     ability: 'Laser Beam',
     weapon: 'RAPID',
     rarity: 'LEGENDARY',
     unlocked: false,
-    price: 5000
+    price: 500
   },
   {
     id: 'alien',
     icon: '👽',
     name: 'Zorg',
     description: 'Probing technology.',
-    baseStats: { speed: 8, power: 6, defense: 4 },
+    baseStats: { speed: 22, power: 22, defense: 22 },
     ability: 'Abduction',
     weapon: 'BLASTER',
     rarity: 'LEGENDARY',
     unlocked: false,
-    price: 8000
+    price: 800
   }
 ];
 
@@ -264,77 +264,128 @@ export const BOSS_TYPES: Record<string, BossData> = {
 export const GAME_ZONES: Zone[] = [
   {
     id: 'zone_1',
-    name: 'NEON STREETS',
-    description: 'Low Danger. Mostly walkers.',
-    difficulty: 1,
-    icon: '🏙️',
-    bossIcon: '🦍',
+    name: 'Training Grounds',
+    description: 'Pirmie mēģinājumi. Lēni ienaidnieki, maz šāvēju.',
+    icon: '🌱',
+    bossIcon: '😈',
     bossType: 'DEFAULT',
-    colors: {
-      bg: '#0f172a',
-      grid: '#1e293b',
-      accent: '#818cf8'
-    }
+    difficulty: 1,
+    colors: { bg: '#020617', grid: '#1e293b' },
   },
   {
     id: 'zone_2',
-    name: 'MAGMA CORE',
-    description: 'Medium Danger. Projectile hell!',
+    name: 'Neon Alley',
+    description: 'Pirmie šāvēji, vairāk mobu no sāniem.',
+    icon: '🌃',
+    bossIcon: '👹',
+    bossType: 'DEFAULT',
     difficulty: 2,
-    icon: '🌋',
-    bossIcon: '🐲',
-    bossType: 'MAGMA_DRAGON',
-    colors: {
-      bg: '#450a0a',
-      grid: '#7f1d1d',
-      accent: '#f87171'
-    }
+    colors: { bg: '#020617', grid: '#1d2955' },
   },
   {
     id: 'zone_3',
-    name: 'CYBER VOID',
-    description: 'High Danger. Heavy Tanks.',
+    name: 'Data Core',
+    description: 'Daudz šāvienu, exploderi parādās biežāk.',
+    icon: '💾',
+    bossIcon: '👁️',
+    bossType: 'DEFAULT',
     difficulty: 3,
-    icon: '🌌',
-    bossIcon: '👾',
-    bossType: 'CYBER_TANK',
-    colors: {
-      bg: '#020617',
-      grid: '#4c1d95',
-      accent: '#d8b4fe'
-    }
+    colors: { bg: '#020617', grid: '#334155' },
   },
   {
     id: 'zone_4',
-    name: 'BIO SANCTUM',
-    description: 'Extreme Danger. Explosive hazards.',
-    difficulty: 4,
-    icon: '☣️',
-    bossIcon: '👺',
+    name: 'Frozen Sector',
+    description: 'Lēni, bet tankaini ienaidnieki.',
+    icon: '❄️',
+    bossIcon: '🧊',
     bossType: 'DEFAULT',
-    colors: {
-      bg: '#052e16',
-      grid: '#14532d',
-      accent: '#4ade80'
-    }
+    difficulty: 4,
+    colors: { bg: '#020617', grid: '#0f172a' },
   },
   {
     id: 'zone_5',
-    name: 'CRYSTAL PEAKS',
-    description: 'Frozen Wasteland.',
-    difficulty: 5,
-    icon: '❄️',
-    bossIcon: '🥶',
+    name: 'Thunder Dome',
+    description: 'Ātri šāvēji, daudz lodīšu.',
+    icon: '⚡',
+    bossIcon: '🌩️',
     bossType: 'DEFAULT',
-    colors: {
-      bg: '#082f49',
-      grid: '#0c4a6e',
-      accent: '#38bdf8'
-    }
+    difficulty: 5,
+    colors: { bg: '#020617', grid: '#1e293b' },
   },
+  {
+    id: 'zone_6',
+    name: 'Void Edge',
+    description: 'Redzamība slikta, bīstamas fāzes.',
+    icon: '🌌',
+    bossIcon: '⚫',
+    bossType: 'DEFAULT',
+    difficulty: 6,
+    colors: { bg: '#020617', grid: '#020617' },
+  },
+  {
+    id: 'zone_7',
+    name: 'Bio Lab',
+    description: 'Ātri exploderi un tanki vienlaicīgi.',
+    icon: '🧪',
+    bossIcon: '🧬',
+    bossType: 'DEFAULT',
+    difficulty: 7,
+    colors: { bg: '#020617', grid: '#14532d' },
+  },
+  {
+    id: 'zone_8',
+    name: 'Overdrive Highway',
+    description: 'Super ātri mobu viļņi, grūti izdzīvot.',
+    icon: '🚦',
+    bossIcon: '🚛',
+    bossType: 'DEFAULT',
+    difficulty: 8,
+    colors: { bg: '#020617', grid: '#4b5563' },
+  },
+  {
+    id: 'zone_9',
+    name: 'Lava Core',
+    description: 'Milzīgs dmg, maz vietas kļūdām.',
+    icon: '🌋',
+    bossIcon: '🔥',
+    bossType: 'DEFAULT',
+    difficulty: 9,
+    colors: { bg: '#020617', grid: '#7f1d1d' },
+  },
+  {
+    id: 'zone_10',
+    name: 'Abyss Gate',
+    description: 'Te sākas īstā elle.',
+    icon: '🕳️',
+    bossIcon: '👻',
+    bossType: 'DEFAULT',
+    difficulty: 10,
+    colors: { bg: '#020617', grid: '#111827' },
+  },
+  {
+    id: 'zone_11',
+    name: 'Singularity',
+    description: 'Lodes, tanki, exploderi – viss reizē.',
+    icon: '⚛️',
+    bossIcon: '🌀',
+    bossType: 'DEFAULT',
+    difficulty: 11,
+    colors: { bg: '#020617', grid: '#0b1120' },
+  },
+  {
+    id: 'zone_12',
+    name: 'Final Overdrive',
+    description: 'Pēdējais level, tikai krutie izdzīvo.',
+    icon: '🏁',
+    bossIcon: '👑',
+    bossType: 'DEFAULT',
+    difficulty: 12,
+    colors: { bg: '#020617', grid: '#1f2937' },
+  },
+];
 
   // … (all your other zones unchanged; add bossType if you want)
-];
+
 
 /* ===========================================================
  🔥 ARENA COMMENTS

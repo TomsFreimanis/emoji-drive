@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { HybridResult, Rarity } from "../../types";
+import { HybridResult, Rarity } from "../types";
 
 const determineRarity = (score: number): Rarity => {
   if (score >= 95) return 'MYTHIC';

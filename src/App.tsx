@@ -1,209 +1,317 @@
-import React, { useState } from 'react';
-import { Screen, EmojiFighter, GameResult, PlayerUpgrades, Zone, Difficulty, Artifact } from './types';
+// src/App.tsx
+import React, { useState, useEffect } from 'react';
+
+import {
+  Screen,
+  EmojiFighter,
+  GameResult,
+  PlayerUpgrades,
+  Zone,
+  Difficulty,
+  Artifact,
+} from './types';
+
 import { STARTER_FIGHTERS, GAME_ZONES } from './constants';
+
+// UI screens
 import { Home } from './components/Home';
 import { BattleArena } from './components/BattleArena';
 import { HybridLab } from './components/HybridLab';
 import { GameOver } from './components/GameOver';
 import { Leaderboard } from './components/Leaderboard';
 import { LootShop } from './components/LootShop';
-import { playSound } from './components/services/soundService';
+
+// Sounds
+import { playSound } from './services/soundService';
+
+// Firebase cloud sync
+import {
+  signInWithGoogle,
+  signOut,
+  onAuthChanged,
+  saveGameToCloud,
+  loadGameFromCloud,
+  CloudSaveData,
+  getCurrentUser,
+} from './services/cloudSave';
+
 
 export default function App() {
+  // Active screen
   const [screen, setScreen] = useState<Screen>(Screen.HOME);
+
+  // Player progression
   const [fighters, setFighters] = useState<EmojiFighter[]>(STARTER_FIGHTERS);
   const [selectedFighter, setSelectedFighter] = useState<EmojiFighter>(
     STARTER_FIGHTERS.find(f => f.unlocked) || STARTER_FIGHTERS[0]
   );
-  const [lastResult, setLastResult] = useState<GameResult | null>(null);
-  
-  // Progression State
-  const [gold, setGold] = useState(500); 
+
+  const [gold, setGold] = useState(500);
   const [upgrades, setUpgrades] = useState<PlayerUpgrades>({
     power: 0,
     speed: 0,
     fireRate: 0,
-    health: 0
+    health: 0,
   });
-  
-  const [unlockedZones, setUnlockedZones] = useState<string[]>([GAME_ZONES[0].id]);
+
+  const [unlockedZones, setUnlockedZones] = useState<string[]>([
+    GAME_ZONES[0].id,
+  ]);
   const [currentZone, setCurrentZone] = useState<Zone>(GAME_ZONES[0]);
+
   const [referralClaimed, setReferralClaimed] = useState(false);
   const [difficulty, setDifficulty] = useState<Difficulty>('NORMAL');
 
-  // Inventory State
+  // Loot / artifacts
   const [inventory, setInventory] = useState<Artifact[]>([]);
   const [equippedArtifacts, setEquippedArtifacts] = useState<string[]>([]);
 
-  // Handle unlocking new fighters from Hybrid Lab
+  const [lastResult, setLastResult] = useState<GameResult | null>(null);
+
+  // ----------------------------------------------------------
+  // 🟦 FIREBASE CLOUD SYNC — AUTO LOAD ON LOGIN
+  // ----------------------------------------------------------
+  useEffect(() => {
+    const unsub = onAuthChanged(async (user) => {
+      if (!user) return;
+
+      const cloud = await loadGameFromCloud(user.uid);
+      if (!cloud) return;
+
+      console.log("Loaded cloud save:", cloud);
+
+      setGold(cloud.gold);
+      setUpgrades(cloud.upgrades);
+      setInventory(cloud.inventory);
+      setEquippedArtifacts(cloud.equippedArtifactIds);
+      setUnlockedZones(cloud.unlockedZoneIds);
+      setCurrentZone(GAME_ZONES.find(z => z.id === cloud.currentZoneId) || GAME_ZONES[0]);
+      setSelectedFighter(
+        cloud.fighters.find(f => f.id === cloud.selectedFighterId) ||
+        STARTER_FIGHTERS[0]
+      );
+      setFighters(cloud.fighters);
+      setDifficulty(cloud.difficulty);
+      setReferralClaimed(cloud.referralClaimed);
+    });
+
+    return () => unsub();
+  }, []);
+
+  // ----------------------------------------------------------
+  // 🟩 AUTO-SAVE TO FIREBASE
+  // ----------------------------------------------------------
+  const cloudSave = async () => {
+    const user = getCurrentUser();
+    if (!user) return;
+
+    const data: CloudSaveData = {
+      gold,
+      upgrades,
+      inventory,
+      equippedArtifactIds: equippedArtifacts,
+      unlockedZoneIds: unlockedZones,
+      currentZoneId: currentZone.id,
+      selectedFighterId: selectedFighter.id,
+      fighters,
+      difficulty,
+      referralClaimed,
+    };
+
+    await saveGameToCloud(user.uid, data);
+  };
+
+  // save on any change
+  useEffect(() => {
+    cloudSave();
+  }, [
+    gold,
+    upgrades,
+    inventory,
+    equippedArtifacts,
+    unlockedZones,
+    currentZone,
+    difficulty,
+    fighters,
+    referralClaimed,
+    selectedFighter,
+  ]);
+
+
+  // ----------------------------------------------------------
+  // 🟧 GAME LOGIC
+  // ----------------------------------------------------------
+
   const handleUnlock = (newFighter: EmojiFighter) => {
     setFighters(prev => [...prev, newFighter]);
-    setSelectedFighter(newFighter); // Auto select new fighter
+    setSelectedFighter(newFighter);
     setScreen(Screen.HOME);
   };
 
   const handleSell = (id: string, amount: number) => {
-      setFighters(prev => prev.filter(f => f.id !== id));
-      setGold(prev => Math.floor(prev + amount));
-      if (selectedFighter.id === id) {
-          setSelectedFighter(fighters.find(f => f.unlocked && f.id !== id) || STARTER_FIGHTERS[0]);
-      }
+    setFighters(prev => prev.filter(f => f.id !== id));
+    setGold(prev => prev + amount);
+
+    if (selectedFighter.id === id) {
+      const next = fighters.find(f => f.unlocked && f.id !== id) || STARTER_FIGHTERS[0];
+      setSelectedFighter(next);
+    }
   };
 
   const handleBuyFighter = (fighter: EmojiFighter) => {
     if (fighter.price && gold >= fighter.price) {
-      setGold(prev => Math.floor(prev - fighter.price!));
-      setFighters(prev => prev.map(f => f.id === fighter.id ? { ...f, unlocked: true } : f));
+      setGold(prev => prev - fighter.price!);
+      setFighters(prev => prev.map(f =>
+        f.id === fighter.id ? { ...f, unlocked: true } : f
+      ));
       setSelectedFighter({ ...fighter, unlocked: true });
       playSound('victory');
       return true;
-    } else {
-      playSound('error');
-      return false;
     }
+    playSound('error');
+    return false;
   };
 
   const handleReferral = () => {
-      if (!referralClaimed) {
-          playSound('victory');
-          setGold(prev => prev + 10000);
-          setReferralClaimed(true);
-      }
+    if (!referralClaimed) {
+      setGold(g => g + 10000);
+      setReferralClaimed(true);
+      playSound('victory');
+    }
+  };
+
+  const handleBuyUpgrade = (type: keyof PlayerUpgrades, cost: number) => {
+    if (gold < cost) return;
+    setGold(g => g - cost);
+    setUpgrades(prev => ({ ...prev, [type]: prev[type] + 1 }));
   };
 
   const handleGameOver = (result: GameResult) => {
     setLastResult(result);
-    setGold(prev => Math.floor(prev + result.goldEarned));
+    setGold(g => g + result.goldEarned);
 
-    // Unlock next zone if victory on Normal or higher
     if (result.victory && result.difficulty !== 'EASY') {
-       const currentIndex = GAME_ZONES.findIndex(z => z.id === result.zoneId);
-       if (currentIndex !== -1 && currentIndex < GAME_ZONES.length - 1) {
-          const nextZoneId = GAME_ZONES[currentIndex + 1].id;
-          if (!unlockedZones.includes(nextZoneId)) {
-             setUnlockedZones(prev => [...prev, nextZoneId]);
-          }
-       }
+      const idx = GAME_ZONES.findIndex(z => z.id === result.zoneId);
+      if (idx !== -1 && idx < GAME_ZONES.length - 1) {
+        const next = GAME_ZONES[idx + 1].id;
+        if (!unlockedZones.includes(next)) {
+          setUnlockedZones(u => [...u, next]);
+        }
+      }
     }
 
     setScreen(Screen.GAME_OVER);
   };
 
-  const handleBuyUpgrade = (type: keyof PlayerUpgrades, cost: number) => {
-    if (gold >= cost) {
-      setGold(prev => Math.floor(prev - cost));
-      setUpgrades(prev => ({
-        ...prev,
-        [type]: prev[type] + 1
-      }));
-    }
-  };
-  
-  const handleAddArtifact = (artifact: Artifact) => {
-      setInventory(prev => [...prev, { ...artifact, id: artifact.id + Date.now() }]); // Unique ID for duplicates
+  // Add artifact to inventory
+  const handleAddArtifact = (a: Artifact) => {
+    setInventory(prev => [...prev, { ...a, id: a.id + '-' + Date.now() }]);
   };
 
+  // Equip artifacts — 5 slots max
   const handleEquipArtifact = (id: string) => {
-      if (equippedArtifacts.includes(id)) {
-          setEquippedArtifacts(prev => prev.filter(aid => aid !== id));
-      } else {
-          if (equippedArtifacts.length < 3) {
-              setEquippedArtifacts(prev => [...prev, id]);
-          } else {
-              // Replace last
-              setEquippedArtifacts(prev => [...prev.slice(0,2), id]);
-          }
-      }
+    setEquippedArtifacts(prev => {
+      if (prev.includes(id)) return prev.filter(x => x !== id);
+      if (prev.length < 5) return [...prev, id];
+      return [...prev.slice(1), id]; // remove 1st, add new
+    });
   };
 
-  // Simple "Router"
+
+  // ----------------------------------------------------------
+  // UI ROUTER
+  // ----------------------------------------------------------
   const renderScreen = () => {
     switch (screen) {
       case Screen.HOME:
         return (
-          <Home 
+          <Home
             onPlay={() => setScreen(Screen.BATTLE)}
             onHybrid={() => setScreen(Screen.HYBRID_LAB)}
             onLeaderboard={() => setScreen(Screen.LEADERBOARD)}
             onLoot={() => setScreen(Screen.LOOT_SHOP)}
+
             selectedFighter={selectedFighter}
             fighters={fighters}
             onSelectFighter={setSelectedFighter}
             onBuyFighter={handleBuyFighter}
+
             gold={gold}
             upgrades={upgrades}
             onBuyUpgrade={handleBuyUpgrade}
+
             unlockedZones={unlockedZones}
             currentZone={currentZone}
             onSelectZone={setCurrentZone}
+
             onReferral={handleReferral}
             referralClaimed={referralClaimed}
+
             difficulty={difficulty}
             onSelectDifficulty={setDifficulty}
+
+            equippedArtifacts={inventory.filter(a => equippedArtifacts.includes(a.id))}
           />
         );
+
       case Screen.BATTLE:
         return (
-          <BattleArena 
+          <BattleArena
             fighter={selectedFighter}
             upgrades={upgrades}
             zone={currentZone}
             difficulty={difficulty}
-            onGameOver={handleGameOver}
             equippedArtifacts={inventory.filter(a => equippedArtifacts.includes(a.id))}
+            onGameOver={handleGameOver}
           />
         );
+
       case Screen.HYBRID_LAB:
         return (
-          <HybridLab 
+          <HybridLab
             fighters={fighters.filter(f => f.unlocked)}
             onUnlock={handleUnlock}
             onSell={handleSell}
             onBack={() => setScreen(Screen.HOME)}
             gold={gold}
-            onSpendGold={(amount) => setGold(prev => Math.floor(prev - amount))}
+            onSpendGold={amount => setGold(g => g - amount)}
           />
         );
+
       case Screen.LOOT_SHOP:
         return (
-          <LootShop 
-             gold={gold}
-             onSpendGold={(amount) => setGold(prev => Math.floor(prev - amount))}
-             inventory={inventory}
-             onAddArtifact={handleAddArtifact}
-             onBack={() => setScreen(Screen.HOME)}
-             equipped={equippedArtifacts}
-             onEquip={handleEquipArtifact}
+          <LootShop
+            gold={gold}
+            onSpendGold={amount => setGold(g => g - amount)}
+            inventory={inventory}
+            onAddArtifact={handleAddArtifact}
+            equipped={equippedArtifacts}
+            onEquip={handleEquipArtifact}
+            onBack={() => setScreen(Screen.HOME)}
           />
         );
+
       case Screen.LEADERBOARD:
-        return (
-          <Leaderboard onBack={() => setScreen(Screen.HOME)} />
-        );
+        return <Leaderboard onBack={() => setScreen(Screen.HOME)} />;
+
       case Screen.GAME_OVER:
         return lastResult ? (
-          <GameOver 
+          <GameOver
             result={lastResult}
             onReplay={() => setScreen(Screen.BATTLE)}
             onHome={() => setScreen(Screen.HOME)}
           />
         ) : null;
+
       default:
-        return <div className="text-white">Loading...</div>;
+        return <div className="text-white">Loading…</div>;
     }
   };
 
-  return (
-    <div className="w-full h-screen bg-slate-950 relative overflow-hidden">
-      {/* Render Current Screen */}
-      {renderScreen()}
 
-      {/* Optional API Key Warning for Demo */}
-      {!process.env.API_KEY && screen !== Screen.BATTLE && (
-         <div className="absolute bottom-2 left-2 right-2 bg-red-900/80 text-red-200 text-xs p-2 rounded text-center pointer-events-none z-50">
-           Demo Mode: AI features limited. Set API_KEY in env.
-         </div>
-      )}
+  return (
+    <div className="w-full h-screen bg-slate-950 overflow-hidden relative">
+      {renderScreen()}
     </div>
   );
 }
