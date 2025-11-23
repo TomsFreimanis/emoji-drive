@@ -49,7 +49,6 @@ interface Bullet {
   color: string;
   isHoming?: boolean;
   shape: 'circle' | 'square' | 'ellipse';
-  radius?: number;
 }
 
 interface FloatingText {
@@ -121,18 +120,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
     currentMaxHp: 100,
   });
 
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
-  const joystickState = useRef({ active: false, dx: 0, dy: 0 });
-  const joystickCenter = useRef({ x: 0, y: 0 });
-  const [joystickThumb, setJoystickThumb] = useState({ x: 0, y: 0 });
-
   const keys = useRef<Record<string, boolean>>({});
-
-  // Detect touch devices (for joystick)
-  useEffect(() => {
-    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    setIsTouchDevice(hasTouch);
-  }, []);
 
   // Init base stats, HP, shield, modifier
   useEffect(() => {
@@ -230,8 +218,38 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       return Math.min(finalSpeed, 18);
     };
 
+    const handleTouch = (e: TouchEvent) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const tx = touch.clientX - rect.left;
+      const ty = touch.clientY - rect.top;
+
+      const dx = tx - gameState.current.player.x;
+      const dy = ty - gameState.current.player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      const speed = calculateSpeed(propsRef.current);
+
+      if (dist > 10) {
+        gameState.current.player.vx = (dx / dist) * speed;
+        gameState.current.player.vy = (dy / dist) * speed;
+      } else {
+        gameState.current.player.vx = 0;
+        gameState.current.player.vy = 0;
+      }
+    };
+
+    const handleTouchEnd = () => {
+      gameState.current.player.vx = 0;
+      gameState.current.player.vy = 0;
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    canvas.addEventListener('touchmove', handleTouch, { passive: false });
+    canvas.addEventListener('touchstart', handleTouch, { passive: false });
+    canvas.addEventListener('touchend', handleTouchEnd);
 
     const loop = () => {
       if (!gameState.current.isRunning) return;
@@ -248,6 +266,9 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       window.removeEventListener('resize', resize);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      canvas.removeEventListener('touchmove', handleTouch);
+      canvas.removeEventListener('touchstart', handleTouch);
+      canvas.removeEventListener('touchend', handleTouchEnd);
       cancelAnimationFrame(gameState.current.frameId);
     };
   }, [modifier]);
@@ -314,45 +335,6 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       life: 40,
       vy: -2,
     });
-  };
-
-  const updateJoystick = (clientX: number, clientY: number) => {
-    const center = joystickCenter.current;
-    const dx = clientX - center.x;
-    const dy = clientY - center.y;
-    const maxRadius = 40;
-    const dist = Math.hypot(dx, dy) || 1;
-
-    const clampedX = dist > maxRadius ? (dx / dist) * maxRadius : dx;
-    const clampedY = dist > maxRadius ? (dy / dist) * maxRadius : dy;
-
-    joystickState.current = {
-      active: true,
-      dx: clampedX / maxRadius,
-      dy: clampedY / maxRadius,
-    };
-    setJoystickThumb({ x: clampedX, y: clampedY });
-  };
-
-  const handleJoystickStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    const touch = e.touches[0];
-    const rect = e.currentTarget.getBoundingClientRect();
-    joystickCenter.current = {
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
-    };
-    updateJoystick(touch.clientX, touch.clientY);
-  };
-
-  const handleJoystickMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    updateJoystick(touch.clientX, touch.clientY);
-  };
-
-  const handleJoystickEnd = () => {
-    joystickState.current = { active: false, dx: 0, dy: 0 };
-    setJoystickThumb({ x: 0, y: 0 });
   };
 
   const endGame = async (victory: boolean) => {
@@ -479,27 +461,15 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
     // Player movement
     const speed = calcSpeed(propsRef.current);
 
-    let inputX = 0;
-    let inputY = 0;
-
-    if (isTouchDevice && joystickState.current.active) {
-      inputX = joystickState.current.dx;
-      inputY = joystickState.current.dy;
-    } else {
-      if (keys.current['ArrowUp'] || keys.current['KeyW']) inputY -= 1;
-      if (keys.current['ArrowDown'] || keys.current['KeyS']) inputY += 1;
-      if (keys.current['ArrowLeft'] || keys.current['KeyA']) inputX -= 1;
-      if (keys.current['ArrowRight'] || keys.current['KeyD']) inputX += 1;
-    }
-
-    if (inputX !== 0 || inputY !== 0) {
-      const len = Math.hypot(inputX, inputY) || 1;
-      state.player.vx = (inputX / len) * speed;
-      state.player.vy = (inputY / len) * speed;
-    } else {
-      state.player.vx *= 0.9;
+    if (keys.current['ArrowUp'] || keys.current['KeyW']) state.player.vy = -speed;
+    else if (keys.current['ArrowDown'] || keys.current['KeyS']) state.player.vy = speed;
+    else if (!keys.current['ArrowUp'] && !keys.current['ArrowDown'] && Math.abs(state.player.vy) > 0.1)
       state.player.vy *= 0.9;
-    }
+
+    if (keys.current['ArrowLeft'] || keys.current['KeyA']) state.player.vx = -speed;
+    else if (keys.current['ArrowRight'] || keys.current['KeyD']) state.player.vx = speed;
+    else if (!keys.current['ArrowLeft'] && !keys.current['ArrowRight'] && Math.abs(state.player.vx) > 0.1)
+      state.player.vx *= 0.9;
 
     state.player.x += state.player.vx;
     state.player.y += state.player.vy;
@@ -716,28 +686,6 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
               }
             }, 450);
           }
-
-          // Huge slow orb the player must dodge (phases 2-3)
-          if (phase >= 2 && Math.random() < 0.35) {
-            const targetX = state.player.x;
-            const targetY = state.player.y;
-            const distToPlayer = Math.hypot(targetX - enemy.x, targetY - enemy.y) || 1;
-
-            spawnFloatingText(targetX, targetY - 40, 'DODGE!', '#f97316', 20);
-
-            state.bullets.push({
-              x: enemy.x,
-              y: enemy.y,
-              vx: ((targetX - enemy.x) / distToPlayer) * 4,
-              vy: ((targetY - enemy.y) / distToPlayer) * 4,
-              life: 320,
-              isEnemy: true,
-              damageMult: 2.4 * bossConfig.damageMultiplier,
-              color: '#facc15',
-              shape: 'circle',
-              radius: 2.2,
-            });
-          }
         }
       } else {
         // non-boss AI
@@ -772,8 +720,8 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
 
       // Collision with player
       if (dist < enemy.size + 20) {
-        let damage = Math.max(8, enemy.enemyClass === 'BOSS' ? 60 : 14);
-        if (enemy.enemyClass === 'EXPLODER') damage = 60 + zone.difficulty * 6;
+        let damage = Math.max(5, enemy.enemyClass === 'BOSS' ? 40 : 10);
+        if (enemy.enemyClass === 'EXPLODER') damage = 40 + zone.difficulty * 5;
         else damage += zone.difficulty * 2;
 
         takeDamage(damage);
@@ -935,9 +883,8 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       b.life--;
 
       if (b.isEnemy) {
-        const hitRadius = b.radius ? 15 * b.radius : 15;
-        if (Math.hypot(state.player.x - b.x, state.player.y - b.y) < hitRadius) {
-          takeDamage(12);
+        if (Math.hypot(state.player.x - b.x, state.player.y - b.y) < 15) {
+          takeDamage(8);
           state.bullets.splice(i, 1);
           continue;
         }
@@ -1212,16 +1159,16 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
     if (fighter.avatarImage && fighterImageRef.current) {
       ctx.save();
       ctx.beginPath();
-      ctx.arc(gameState.current.player.x, gameState.current.player.y, 5, 0, Math.PI * 2);
-      ctx.closePath();
-      ctx.clip();
-      ctx.drawImage(
-        fighterImageRef.current,
-        gameState.current.player.x - 22,
-        gameState.current.player.y - 22,
-        44,
-        44
-      );
+ctx.arc(gameState.current.player.x, gameState.current.player.y, 10, 0, Math.PI * 2);
+ctx.closePath();
+ctx.clip();
+ctx.drawImage(
+  fighterImageRef.current,
+  gameState.current.player.x - 22,
+  gameState.current.player.y - 22,
+  44,
+  44
+);
 
       ctx.restore();
     } else {
@@ -1230,20 +1177,21 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
     }
 
     if (shield > 0) {
-      const r = 28; // 22 player-radius + 6 glow padding
+  const r = 28; // 22 player-radius + 6 glow padding
 
-      ctx.beginPath();
-      ctx.arc(
-        gameState.current.player.x,
-        gameState.current.player.y,
-        r,
-        0,
-        Math.PI * 2
-      );
-      ctx.strokeStyle = `rgba(100, 200, 255, ${shield / maxShield})`;
-      ctx.lineWidth = 4;
-      ctx.stroke();
-    }
+  ctx.beginPath();
+  ctx.arc(
+    gameState.current.player.x,
+    gameState.current.player.y,
+    r,
+    0,
+    Math.PI * 2
+  );
+  ctx.strokeStyle = `rgba(100, 200, 255, ${shield / maxShield})`;
+  ctx.lineWidth = 4;
+  ctx.stroke();
+}
+
 
     gameState.current.enemies.forEach((e) => {
       ctx.font = `${e.size}px serif`;
@@ -1263,7 +1211,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       ctx.shadowBlur = 5;
       ctx.shadowColor = b.color;
 
-      const size = (b.isEnemy ? 10 : 7) * (b.radius || 1);
+      const size = b.isEnemy ? 10 : 7;
 
       if (b.shape === 'square') {
         ctx.fillRect(b.x - size / 2, b.y - size / 2, size, size);
@@ -1417,28 +1365,6 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
           </div>
         )}
       </div>
-
-      {/* Mobile joystick (touch only) */}
-      {isTouchDevice && (
-        <div className="absolute bottom-6 left-6 z-50 pointer-events-auto md:hidden">
-          <div
-            className="relative w-28 h-28 rounded-full bg-slate-900/70 border border-slate-600/80"
-            onTouchStart={handleJoystickStart}
-            onTouchMove={handleJoystickMove}
-            onTouchEnd={handleJoystickEnd}
-            onTouchCancel={handleJoystickEnd}
-          >
-            <div
-              className="absolute w-12 h-12 rounded-full bg-slate-700/90 border border-slate-500 shadow-lg"
-              style={{
-                left: '50%',
-                top: '50%',
-                transform: `translate(calc(-50% + ${joystickThumb.x}px), calc(-50% + ${joystickThumb.y}px))`,
-              }}
-            />
-          </div>
-        </div>
-      )}
 
       {/* Ultimate button */}
       <div className="absolute bottom-8 right-8 z-50 pointer-events-auto">
