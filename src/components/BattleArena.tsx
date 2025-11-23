@@ -688,35 +688,42 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
           }
 
           // PHASE 3 — enraged dash + shockwave ring
-          if (phase === 3) {
-            setOverlayMessage('ENRAGED!');
-            const futureX = state.player.x + state.player.vx * 10;
-            const futureY = state.player.y + state.player.vy * 10;
-            createParticles(futureX, futureY, 'purple', 25);
+// PHASE 3 — enraged charge (no teleport) + shockwave
+if (phase === 3) {
+  setOverlayMessage('ENRAGED!');
 
-            setTimeout(() => {
-              enemy.x = futureX;
-              enemy.y = futureY;
-              playSound('explosion');
-              setScreenShake((prev) => prev + 6);
+  const dx = state.player.x - enemy.x;
+  const dy = state.player.y - enemy.y;
+  const angle = Math.atan2(dy, dx);
 
-              // shockwave ring – slightly fewer bullets and lower damage so it's dodgeable,
-              // not an instant one-shot even if a few hit at once
-              for (let angle = 0; angle < Math.PI * 2; angle += 0.35) {
-                state.bullets.push({
-                  x: enemy.x,
-                  y: enemy.y,
-                  vx: Math.cos(angle) * 9,
-                  vy: Math.sin(angle) * 9,
-                  life: 260,
-                  isEnemy: true,
-                  damageMult: 1.0 * bossConfig.damageMultiplier,
-                  color: '#ff00ff',
-                  shape: 'circle',
-                });
-              }
-            }, 450);
-          }
+  // boss CHARGES forward, does NOT teleport
+  const chargeSpeed = 12; 
+  enemy.vx = Math.cos(angle) * chargeSpeed;
+  enemy.vy = Math.sin(angle) * chargeSpeed;
+
+  // shockwave after short delay
+  setTimeout(() => {
+    playSound('explosion');
+    setScreenShake((prev) => prev + 4);
+    createParticles(enemy.x, enemy.y, 'purple', 25);
+
+    for (let a = 0; a < Math.PI * 2; a += 0.35) {
+      state.bullets.push({
+        x: enemy.x,
+        y: enemy.y,
+        vx: Math.cos(a) * 8,
+        vy: Math.sin(a) * 8,
+        life: 260,
+        isEnemy: true,
+        damageMult: 0.7 * bossConfig.damageMultiplier, // balanced
+        color: '#ff00ff',
+        shape: 'circle',
+      });
+    }
+  }, 350);
+}
+
+
         }
       } else {
         if (enemy.enemyClass === 'SHOOTER') {
