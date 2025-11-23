@@ -85,6 +85,9 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
   const [screenShake, setScreenShake] = useState(0);
   const [modifier, setModifier] = useState<ZoneModifier>('NONE');
 
+  // **NEW** – responsīvs render scale (mazāks uz mazākiem ekrāniem = “tālāk”)
+  const [renderScale, setRenderScale] = useState(1);
+
   const fighterImageRef = useRef<HTMLImageElement | null>(null);
 
   const propsRef = useRef({ fighter, upgrades, zone, difficulty, onGameOver, equippedArtifacts });
@@ -95,9 +98,24 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
   const gameState = useRef({
     player: { x: 0, y: 0, vx: 0, vy: 0 },
     enemies: [] as Enemy[],
-    particles: [] as { x: number; y: number; vx: number; vy: number; life: number; color: string; size: number }[],
+    particles: [] as {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      life: number;
+      color: string;
+      size: number;
+    }[],
     bullets: [] as Bullet[],
-    items: [] as { x: number; y: number; type: 'RATE' | 'MULTI' | 'GOLD' | 'HEAL'; icon: string; life: number; val?: number }[],
+    items: [] as {
+      x: number;
+      y: number;
+      type: 'RATE' | 'MULTI' | 'GOLD' | 'HEAL';
+      icon: string;
+      life: number;
+      val?: number;
+    }[],
     floatingTexts: [] as FloatingText[],
     lastShot: 0,
     lastShieldRegen: 0,
@@ -181,9 +199,20 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
     gameState.current.lastShieldRegen = Date.now();
 
     const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      canvas.width = w;
+      canvas.height = h;
+
+      // **NEW**: scale after width – mazāks uz telefona
+      let s = 1;
+      if (w < 380) s = 0.7;
+      else if (w < 480) s = 0.8;
+      else if (w < 640) s = 0.9;
+      else s = 1;
+      setRenderScale(s);
     };
+
     window.addEventListener('resize', resize);
     resize();
 
@@ -257,7 +286,8 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       gameState.current.timeElapsed = (now - gameState.current.startTime) / 1000;
 
       update(canvas, calculateSpeed);
-      draw(canvas.getContext('2d')!);
+      const ctx = canvas.getContext('2d');
+      if (ctx) draw(ctx);
       gameState.current.frameId = requestAnimationFrame(loop);
     };
     gameState.current.frameId = requestAnimationFrame(loop);
@@ -412,7 +442,13 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
             return newHp;
           });
           state.events.push('Took Damage');
-          spawnFloatingText(state.player.x, state.player.y, `-${Math.ceil(remainder)}`, '#f87171', 20);
+          spawnFloatingText(
+            state.player.x,
+            state.player.y,
+            `-${Math.ceil(remainder)}`,
+            '#f87171',
+            20,
+          );
           createParticles(state.player.x, state.player.y, 'red', 5);
           return 0;
         }
@@ -436,10 +472,20 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       const bossKey = zone.bossType ?? 'DEFAULT';
       const bossConfig = BOSS_TYPES[bossKey] ?? BOSS_TYPES.DEFAULT;
 
-      const bossBaseHp = 3000;
-      const zoneMultiplier = zone.difficulty > 8 ? Math.pow(1.3, zone.difficulty - 5) : zone.difficulty;
-      let bossHp = bossBaseHp * bossConfig.hpMultiplier * zoneMultiplier * diffSettings.hpMult;
-      if (isTankyMobs) bossHp *= 1.5;
+      // **UZLABOTS BOSS HP SCALING** – stiprāks & vairāk “late game” feel
+      const bossBaseHp = 3500;
+      const difficultyScale = 1 + zone.difficulty * 0.35;
+      const survivalScale = 1 + timeElapsed / 60; // līdz ~2x pie 60s
+      let bossHp =
+        bossBaseHp *
+        bossConfig.hpMultiplier *
+        difficultyScale *
+        survivalScale *
+        diffSettings.hpMult;
+
+      if (isTankyMobs) bossHp *= 1.35;
+      if (difficulty === 'HARD') bossHp *= 1.2;
+      if (difficulty === 'EXTREME') bossHp *= 1.45;
 
       bossHp = Math.floor(bossHp);
 
@@ -474,14 +520,21 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
     state.player.x += state.player.vx;
     state.player.y += state.player.vy;
     state.player.x = Math.max(20, Math.min(width - 20, state.player.x));
-    state.player.y = Math.max(20, Math.min(height - 20, state.player.y));
+    const worldHeight = height / renderScale;
+const worldWidth = width / renderScale;
+
+state.player.x = Math.max(20, Math.min(worldWidth - 20, state.player.x));
+state.player.y = Math.max(20, Math.min(worldHeight - 20, state.player.y));
+
 
     // Enemy spawn (non-boss)
     if (!state.bossSpawned) {
       const d = zone.difficulty;
       const timeRatio = timeElapsed / 60;
-      const spawnThreshold = 0.015 + d * 0.004 + timeRatio * 0.05;
-      const maxEnemies = 3 + d + Math.floor(timeElapsed / 4);
+
+      // nedaudz vairāk spawn & scaling
+      const spawnThreshold = 0.018 + d * 0.005 + timeRatio * 0.06;
+      const maxEnemies = 4 + d + Math.floor(timeElapsed / 4);
 
       if (state.enemies.length < maxEnemies && Math.random() < spawnThreshold) {
         const side = Math.floor(Math.random() * 4);
@@ -513,16 +566,16 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
         if (d >= 4 && rand > 0.85) {
           enemyClass = 'EXPLODER';
           type = '💣';
-          hpMult = 0.5;
+          hpMult = 0.6;
           size = 35;
         } else if (d >= 2 && rand > 0.7) {
           enemyClass = 'SHOOTER';
           type = '🛸';
-          hpMult = 0.8;
+          hpMult = 0.9;
         } else if (d >= 3 && rand > 0.9) {
           enemyClass = 'TANK';
           type = '🗿';
-          hpMult = 2.5;
+          hpMult = 2.7;
           size = 50;
         }
 
@@ -536,7 +589,8 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
         if (zone.id === 'zone_13') type = '⚛️';
         if (zone.id === 'zone_14') type = '👾';
 
-        const baseHp = 15 + timeElapsed * 2;
+        // **Stiprāki enemy** – vairāk HP over time
+        const baseHp = 20 + timeElapsed * 3 + d * 4;
         const difficultyHp = baseHp * (1 + d * 0.5);
         let finalHp = difficultyHp * hpMult * diffSettings.hpMult;
         if (isTankyMobs) finalHp *= 1.5;
@@ -666,8 +720,11 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
             createParticles(futureX, futureY, 'purple', 25);
 
             setTimeout(() => {
-              enemy.x = futureX;
-              enemy.y = futureY;
+             const dashOffset = 120; // boss will land beside player, not on top
+enemy.x = futureX + dashOffset * (Math.random() > 0.5 ? 1 : -1);
+enemy.y = futureY + dashOffset * (Math.random() > 0.5 ? 1 : -1);
+
+
               playSound('explosion');
               setScreenShake((prev) => prev + 6);
 
@@ -720,9 +777,10 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
 
       // Collision with player
       if (dist < enemy.size + 20) {
-        let damage = Math.max(5, enemy.enemyClass === 'BOSS' ? 40 : 10);
-        if (enemy.enemyClass === 'EXPLODER') damage = 40 + zone.difficulty * 5;
-        else damage += zone.difficulty * 2;
+        let damage = enemy.enemyClass === 'BOSS' ? 50 : 10; // boss mazliet stiprāks
+
+        if (enemy.enemyClass === 'EXPLODER') damage = 45 + zone.difficulty * 6;
+        else damage += zone.difficulty * 3;
 
         takeDamage(damage);
 
@@ -884,7 +942,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
 
       if (b.isEnemy) {
         if (Math.hypot(state.player.x - b.x, state.player.y - b.y) < 15) {
-          takeDamage(8);
+          takeDamage(8 + zone.difficulty * 1.5);
           state.bullets.splice(i, 1);
           continue;
         }
@@ -1121,32 +1179,55 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
 
     ctx.save();
     ctx.translate(shakeX, shakeY);
+    ctx.scale(renderScale, renderScale);
 
-    const gradient = ctx.createLinearGradient(0, 0, 0, height);
+    const worldWidth = width / renderScale;
+    const worldHeight = height / renderScale;
+
+    // Background gradient
+    const gradient = ctx.createLinearGradient(0, 0, 0, worldHeight);
     gradient.addColorStop(0, zone.colors.bg);
     gradient.addColorStop(1, '#000000');
     ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillRect(0, 0, worldWidth, worldHeight);
 
+    // Grid (mazliet smalkāks “arena look”)
     ctx.strokeStyle = zone.colors.grid;
-    ctx.lineWidth = 2;
-    for (let x = 0; x < width; x += 60) {
+    ctx.lineWidth = 1.5;
+    const gridStep = 60;
+    for (let x = 0; x < worldWidth; x += gridStep) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
+      ctx.lineTo(x, worldHeight);
       ctx.stroke();
     }
-    for (let y = 0; y < height; y += 60) {
+    for (let y = 0; y < worldHeight; y += gridStep) {
       ctx.beginPath();
       ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
+      ctx.lineTo(worldWidth, y);
       ctx.stroke();
     }
 
+    // Vignete, lai arēna izskatās glītāka un “dziļāka”
+    const vignette = ctx.createRadialGradient(
+      worldWidth / 2,
+      worldHeight / 2,
+      Math.min(worldWidth, worldHeight) / 3,
+      worldWidth / 2,
+      worldHeight / 2,
+      Math.max(worldWidth, worldHeight) / 1.1,
+    );
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.75)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, worldWidth, worldHeight);
+
+    // Items
     ctx.font = '24px serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     gameState.current.items.forEach((item) => {
+      ctx.fillStyle = 'white';
       ctx.fillText(item.icon, item.x, item.y);
       if (item.type !== 'GOLD') {
         ctx.beginPath();
@@ -1156,45 +1237,41 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       }
     });
 
+    // Player
     if (fighter.avatarImage && fighterImageRef.current) {
       ctx.save();
       ctx.beginPath();
-ctx.arc(gameState.current.player.x, gameState.current.player.y, 10, 0, Math.PI * 2);
-ctx.closePath();
-ctx.clip();
-ctx.drawImage(
-  fighterImageRef.current,
-  gameState.current.player.x - 22,
-  gameState.current.player.y - 22,
-  44,
-  44
-);
-
+      ctx.arc(gameState.current.player.x, gameState.current.player.y, 10, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(
+        fighterImageRef.current,
+        gameState.current.player.x - 22,
+        gameState.current.player.y - 22,
+        44,
+        44,
+      );
       ctx.restore();
     } else {
       ctx.font = '30px serif';
+      ctx.fillStyle = 'white';
       ctx.fillText(fighter.icon, gameState.current.player.x, gameState.current.player.y);
     }
 
-    if (shield > 0) {
-  const r = 28; // 22 player-radius + 6 glow padding
+    // Shield aura
+    if (shield > 0 && maxShield > 0) {
+      const r = 28;
+      ctx.beginPath();
+      ctx.arc(gameState.current.player.x, gameState.current.player.y, r, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(100, 200, 255, ${shield / maxShield})`;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+    }
 
-  ctx.beginPath();
-  ctx.arc(
-    gameState.current.player.x,
-    gameState.current.player.y,
-    r,
-    0,
-    Math.PI * 2
-  );
-  ctx.strokeStyle = `rgba(100, 200, 255, ${shield / maxShield})`;
-  ctx.lineWidth = 4;
-  ctx.stroke();
-}
-
-
+    // Enemies
     gameState.current.enemies.forEach((e) => {
       ctx.font = `${e.size}px serif`;
+      ctx.fillStyle = 'white';
       ctx.fillText(e.type, e.x, e.y);
       if (e.enemyClass !== 'BOSS' && e.hp < e.maxHp) {
         const barWidth = 30;
@@ -1206,11 +1283,11 @@ ctx.drawImage(
       }
     });
 
+    // Bullets
     gameState.current.bullets.forEach((b) => {
       ctx.fillStyle = b.color;
       ctx.shadowBlur = 5;
       ctx.shadowColor = b.color;
-
       const size = b.isEnemy ? 10 : 7;
 
       if (b.shape === 'square') {
@@ -1235,6 +1312,7 @@ ctx.drawImage(
       ctx.shadowBlur = 0;
     });
 
+    // Particles
     gameState.current.particles.forEach((p) => {
       ctx.fillStyle = p.color;
       ctx.globalAlpha = p.life / 30;
@@ -1244,6 +1322,7 @@ ctx.drawImage(
       ctx.globalAlpha = 1;
     });
 
+    // Floating texts
     gameState.current.floatingTexts.forEach((t) => {
       ctx.font = `bold ${t.size}px Inter`;
       ctx.fillStyle = t.color;
@@ -1261,23 +1340,23 @@ ctx.drawImage(
       <canvas ref={canvasRef} className="block w-full h-full touch-none" />
 
       {/* HUD LEFT */}
-      <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
+      <div className="absolute top-2 left-2 sm:top-4 sm:left-4 flex flex-col gap-2 pointer-events-none">
         <div className="flex items-center gap-3">
-          <div className="w-16 h-16 rounded-full border-4 border-slate-800 overflow-hidden bg-slate-900 flex items-center justify-center shadow-xl ring-2 ring-white/20">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-4 border-slate-800 overflow-hidden bg-slate-900 flex items-center justify-center shadow-xl ring-2 ring-white/20">
             {fighter.avatarImage ? (
               <img src={fighter.avatarImage} className="w-full h-full object-cover" />
             ) : (
-              <span className="text-3xl">{fighter.icon}</span>
+              <span className="text-2xl sm:text-3xl">{fighter.icon}</span>
             )}
           </div>
 
           <div className="flex flex-col gap-2">
-            <div className="h-5 w-40 bg-slate-900/80 rounded-full border border-white/10 overflow-hidden relative backdrop-blur-md">
+            <div className="h-5 w-36 sm:w-40 bg-slate-900/80 rounded-full border border-white/10 overflow-hidden relative backdrop-blur-md">
               <div
                 className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-green-600 to-green-400 transition-all duration-300"
                 style={{ width: `${Math.max(0, (hp / maxHp) * 100)}%` }}
               />
-              {shield > 0 && (
+              {shield > 0 && maxShield > 0 && (
                 <div
                   className="absolute left-0 top-0 bottom-0 bg-blue-500/50 border-r-2 border-blue-400 transition-all duration-300"
                   style={{ width: `${Math.max(0, (shield / maxShield) * 100)}%` }}
@@ -1290,7 +1369,7 @@ ctx.drawImage(
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-1 bg-black/40 px-3 py-0.5 rounded-full text-yellow-400 text-sm font-bold border border-yellow-500/20 w-fit backdrop-blur-sm">
+            <div className="flex items-center gap-1 bg-black/40 px-2 sm:px-3 py-0.5 rounded-full text-yellow-400 text-xs sm:text-sm font-bold border border-yellow-500/20 w-fit backdrop-blur-sm">
               <Coins className="w-3 h-3" /> {Math.floor(gold)}
             </div>
           </div>
@@ -1299,33 +1378,33 @@ ctx.drawImage(
         {(equippedArtifacts.length > 0 ||
           gameState.current.stats.fireRateMod > 0 ||
           gameState.current.stats.multiShot > 0) && (
-          <div className="mt-2 flex flex-col gap-1 animate-in slide-in-from-left-5 fade-in duration-500">
-            <span className="text-[9px] text-slate-400 uppercase font-bold tracking-widest ml-1">
+          <div className="mt-1 sm:mt-2 flex flex-col gap-1 animate-in slide-in-from-left-5 fade-in duration-500">
+            <span className="text-[8px] sm:text-[9px] text-slate-400 uppercase font-bold tracking-widest ml-1">
               Active Buffs
             </span>
             {equippedArtifacts.map((a, idx) => (
               <div
                 key={`art-${idx}`}
-                className="flex items-center gap-2 bg-black/40 p-1.5 rounded-lg border border-white/10 backdrop-blur-sm w-fit"
+                className="flex items-center gap-2 bg-black/40 px-1.5 py-1 rounded-lg border border-white/10 backdrop-blur-sm w-fit"
               >
-                <span className="text-xl">{a.icon}</span>
-                <span className="text-[10px] text-white font-bold">
+                <span className="text-lg sm:text-xl">{a.icon}</span>
+                <span className="text-[9px] sm:text-[10px] text-white font-bold">
                   {getArtifactShortDesc(a)}
                 </span>
               </div>
             ))}
             {gameState.current.stats.fireRateMod > 0 && (
-              <div className="flex items-center gap-2 bg-yellow-900/40 p-1.5 rounded-lg border border-yellow-500/30 backdrop-blur-sm w-fit">
-                <span className="text-xl">⚡</span>
-                <span className="text-[10px] text-yellow-200 font-bold">
+              <div className="flex items-center gap-2 bg-yellow-900/40 px-1.5 py-1 rounded-lg border border-yellow-500/30 backdrop-blur-sm w-fit">
+                <span className="text-lg sm:text-xl">⚡</span>
+                <span className="text-[9px] sm:text-[10px] text-yellow-200 font-bold">
                   Fire Rate +{gameState.current.stats.fireRateMod}
                 </span>
               </div>
             )}
             {gameState.current.stats.multiShot > 0 && (
-              <div className="flex items-center gap-2 bg-blue-900/40 p-1.5 rounded-lg border border-blue-500/30 backdrop-blur-sm w-fit">
-                <span className="text-xl">⭐</span>
-                <span className="text-[10px] text-blue-200 font-bold">
+              <div className="flex items-center gap-2 bg-blue-900/40 px-1.5 py-1 rounded-lg border border-blue-500/30 backdrop-blur-sm w-fit">
+                <span className="text-lg sm:text-xl">⭐</span>
+                <span className="text-[9px] sm:text-[10px] text-blue-200 font-bold">
                   Multishot +{gameState.current.stats.multiShot}
                 </span>
               </div>
@@ -1335,29 +1414,29 @@ ctx.drawImage(
       </div>
 
       {/* HUD RIGHT */}
-      <div className="absolute top-4 right-4 flex flex-col items-end gap-2 pointer-events-none">
+      <div className="absolute top-2 right-2 sm:top-4 sm:right-4 flex flex-col items-end gap-2 pointer-events-none">
         {bossActive ? (
-          <div className="text-red-500 font-display text-3xl animate-pulse drop-shadow-lg flex items-center gap-2">
+          <div className="text-red-500 font-display text-2xl sm:text-3xl animate-pulse drop-shadow-lg flex items-center gap-2">
             <Skull /> BOSS BATTLE
           </div>
         ) : (
           <div
-            className={`text-5xl font-display drop-shadow-lg flex items-center gap-2 ${
+            className={`font-display drop-shadow-lg flex items-center gap-2 ${
               timeLeft < 10 ? 'text-red-500 animate-pulse' : 'text-white'
-            }`}
+            } text-3xl sm:text-5xl`}
           >
-            <span className="text-2xl text-slate-400">TIME</span> {timeLeft}
+            <span className="text-xs sm:text-2xl text-slate-400">TIME</span> {timeLeft}
           </div>
         )}
-        <div className="text-slate-300 font-bold text-xs uppercase tracking-widest flex items-center gap-1 bg-black/30 px-2 py-1 rounded border border-white/5 backdrop-blur-sm">
+        <div className="text-slate-300 font-bold text-[9px] sm:text-xs uppercase tracking-widest flex items-center gap-1 bg-black/30 px-2 py-1 rounded border border-white/5 backdrop-blur-sm">
           {zone.icon} {zone.name}
         </div>
-        <div className="text-slate-400 font-bold text-[10px] uppercase tracking-widest bg-black/30 px-2 py-1 rounded border border-white/5">
+        <div className="text-slate-400 font-bold text-[9px] sm:text-[10px] uppercase tracking-widest bg-black/30 px-2 py-1 rounded border border-white/5">
           {difficulty}
         </div>
         {modifier !== 'NONE' && (
           <div
-            className={`text-[10px] font-bold uppercase tracking-widest bg-black/30 px-2 py-1 rounded border border-white/5 ${
+            className={`text-[8px] sm:text-[10px] font-bold uppercase tracking-widest bg-black/30 px-2 py-1 rounded border border-white/5 ${
               ZONE_MODIFIERS.find((m) => m.type === modifier)?.color
             }`}
           >
@@ -1367,10 +1446,10 @@ ctx.drawImage(
       </div>
 
       {/* Ultimate button */}
-      <div className="absolute bottom-8 right-8 z-50 pointer-events-auto">
+      <div className="absolute bottom-6 right-4 sm:bottom-8 sm:right-8 z-50 pointer-events-auto">
         <Button
           variant="primary"
-          className={`rounded-full w-24 h-24 flex flex-col items-center justify-center border-4 shadow-2xl transition-all duration-300 ${
+          className={`rounded-full w-20 h-20 sm:w-24 sm:h-24 flex flex-col items-center justify-center border-4 shadow-2xl transition-all duration-300 ${
             ultimateCharge >= 100
               ? 'animate-pulse border-yellow-400 bg-indigo-600 scale-110 shadow-indigo-500/50'
               : 'grayscale opacity-80 border-slate-700'
@@ -1379,11 +1458,11 @@ ctx.drawImage(
           disabled={ultimateCharge < 100}
         >
           <Zap
-            className={`w-8 h-8 mb-1 ${
+            className={`w-7 h-7 sm:w-8 sm:h-8 mb-1 ${
               ultimateCharge >= 100 ? 'text-yellow-400 fill-yellow-400' : 'text-slate-400'
             }`}
           />
-          <span className="text-[10px] font-bold uppercase tracking-widest">
+          <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest">
             {Math.floor(ultimateCharge)}%
           </span>
         </Button>
@@ -1391,9 +1470,9 @@ ctx.drawImage(
 
       {/* Boss warning */}
       {showBossWarning && (
-        <div className="absolute top-24 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none animate-bounce">
-          <AlertTriangle className="w-16 h-16 text-red-500 fill-red-500/20" />
-          <span className="text-red-500 font-display text-4xl tracking-widest drop-shadow-black stroke-2">
+        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none animate-bounce">
+          <AlertTriangle className="w-12 h-12 sm:w-16 sm:h-16 text-red-500 fill-red-500/20" />
+          <span className="text-red-500 font-display text-3xl sm:text-4xl tracking-widest drop-shadow-black stroke-2 text-center">
             WARNING
           </span>
         </div>
@@ -1401,15 +1480,15 @@ ctx.drawImage(
 
       {/* Boss HP bar */}
       {bossActive && bossHpData && (
-        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 w-full max-w-md px-8 pointer-events-none animate-in fade-in slide-in-from-top-5">
-          <div className="h-6 w-full bg-slate-900/90 rounded-full border border-red-500/50 overflow-hidden relative shadow-lg shadow-red-900/50">
+        <div className="absolute top-16 sm:top-20 left-1/2 transform -translate-x-1/2 w-full max-w-md px-4 sm:px-8 pointer-events-none animate-in fade-in slide-in-from-top-5">
+          <div className="h-5 sm:h-6 w-full bg-slate-900/90 rounded-full border border-red-500/50 overflow-hidden relative shadow-lg shadow-red-900/50">
             <div
               className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-red-700 to-red-500 transition-all duration-100"
               style={{
                 width: `${Math.max(0, (bossHpData.current / bossHpData.max) * 100)}%`,
               }}
             />
-            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white uppercase tracking-widest drop-shadow">
+            <span className="absolute inset-0 flex items-center justify-center text-[9px] sm:text-[10px] font-bold text-white uppercase tracking-widest drop-shadow">
               {zone.bossIcon} Boss Health
             </span>
           </div>
@@ -1420,7 +1499,7 @@ ctx.drawImage(
       {overlayMessage && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-50">
           <h1
-            className="text-7xl font-display text-yellow-300 tracking-tighter transform -rotate-6 animate-bounce neon-text text-center px-4 drop-shadow-2xl stroke-black"
+            className="font-display text-4xl sm:text-6xl md:text-7xl text-yellow-300 tracking-tighter transform -rotate-3 sm:-rotate-6 animate-bounce neon-text text-center px-4 drop-shadow-2xl stroke-black"
             style={{ WebkitTextStroke: '2px black' }}
           >
             {overlayMessage}
