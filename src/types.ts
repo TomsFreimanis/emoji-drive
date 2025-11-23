@@ -71,7 +71,11 @@ export interface Zone {
   };
   icon: string;
   bossIcon: string;
+
+  // 👇 JAUNAIS LAUKS priekš modernās boss sistēmas
+  bossType?: string;
 }
+
 
 export interface GameResult {
   score: number;
