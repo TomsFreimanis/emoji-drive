@@ -194,15 +194,11 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
     gameState.current.bossSpawned = false;
     gameState.current.lastShieldRegen = Date.now();
 
-    const resize = () => {
-  const doc = document.documentElement;
-
-  const maxW = 400;
-  const maxH = 750;
-
-  canvas.width = Math.min(doc.clientWidth, maxW);
-  canvas.height = Math.min(doc.clientHeight, maxH);
+  const resize = () => {
+  canvas.width = document.documentElement.clientWidth;
+  canvas.height = document.documentElement.clientHeight;
 };
+
 
 
     window.addEventListener('resize', resize);
@@ -546,7 +542,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
         let enemyClass: EnemyType = 'CHASER';
         let type = '👿';
         let hpMult = 1.0;
-        let size = 30;
+        let size = 20;
 
         if (d >= 4 && rand > 0.85) {
           enemyClass = 'EXPLODER';
@@ -561,7 +557,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
           enemyClass = 'TANK';
           type = '🗿';
           hpMult = 2.7;
-          size = 50;
+          size = 30;
         }
 
         if (zone.id === 'zone_5') type = '🧊';
@@ -574,7 +570,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
         if (zone.id === 'zone_13') type = '⚛️';
         if (zone.id === 'zone_14') type = '👾';
 
-        const baseHp = 20 + timeElapsed * 3 + d * 4;
+        const baseHp = 10 + timeElapsed * 3 + d * 4;
         const difficultyHp = baseHp * (1 + d * 0.5);
         let finalHp = difficultyHp * hpMult * diffSettings.hpMult;
         if (isTankyMobs) finalHp *= 1.5;
@@ -601,7 +597,12 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       const dy = state.player.y - enemy.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      let speedMod = 1.0 + zone.difficulty * 0.15 + timeElapsed * 0.01;
+      let speedMod = 0.75 + zone.difficulty * 0.12 + timeElapsed * 0.008;
+
+if (window.innerWidth < 500) {
+  speedMod *= 0.7;   // mobilajam -30% ātrāki enemy
+}
+
       if (modifier === 'SPEED_DEMON') speedMod *= 1.5;
       if (zone.id === 'zone_5') speedMod *= 1.2;
       if (zone.id === 'zone_10') speedMod *= 0.6;
@@ -657,7 +658,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
             setOverlayMessage('LASER SWEEP!');
             const dangerX = enemy.x;
             const dangerY = enemy.y + 160;
-            spawnFloatingText(dangerX, dangerY, '!', '#ff0000', 40);
+            spawnFloatingText(dangerX, dangerY, '!', '#ff0000', 20);
 
             setTimeout(() => {
               const angle = Math.atan2(state.player.y - enemy.y, state.player.x - enemy.x);
@@ -697,6 +698,29 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
 // PHASE 3 — enraged charge (no teleport) + shockwave
 if (phase === 3) {
   setOverlayMessage('ENRAGED!');
+// ===== MEGA SHOT: Liela lēna insta-kill bumba =====
+if (Math.random() < 0.25) { // 25% iespēja ik ciklā
+  const angle = Math.atan2(
+    state.player.y - enemy.x,
+    state.player.x - enemy.x
+  );
+
+  state.bullets.push({
+    x: enemy.x,
+    y: enemy.y,
+    vx: Math.cos(angle) * 3,  // LĒNA bumba
+    vy: Math.sin(angle) * 3,
+    life: 700,
+    isEnemy: true,
+    damageMult: 9999,         // insta kill
+    color: "#ff0033",
+    shape: "circle",
+    size: 60                  // MILZĪGS izmērs
+  });
+
+  spawnFloatingText(enemy.x, enemy.y, "MEGA SHOT!", "#ff0033", 32);
+  playSound("explosion");
+}
 
   const dx = state.player.x - enemy.x;
   const dy = state.player.y - enemy.y;
@@ -932,17 +956,29 @@ if (phase === 3) {
       b.y += b.vy;
       b.life--;
 
-      if (b.isEnemy) {
-        if (Math.hypot(state.player.x - b.x, state.player.y - b.y) < 15) {
-          takeDamage(8);
-          state.bullets.splice(i, 1);
-          continue;
-        }
-      } else {
+     if (b.isEnemy) {
+  const hit = Math.hypot(state.player.x - b.x, state.player.y - b.y) < (b.size || 15);
+
+  if (hit) {
+
+    // MEGA SHOT?
+    if (b.damageMult >= 9999) {
+      setHp(0);
+      endGame(false);
+      return;
+    }
+
+    takeDamage(8);
+    state.bullets.splice(i, 1);
+    continue;
+  }
+}
+ else {
         let hit = false;
         for (let j = state.enemies.length - 1; j >= 0; j--) {
           const e = state.enemies[j];
-          const hitDist = e.enemyClass === 'BOSS' ? e.size + 20 : e.size + 10;
+          const hitDist = e.enemyClass === 'BOSS' ? e.size + 12 : e.size + 4;
+
 
           if (Math.hypot(e.x - b.x, e.y - b.y) < hitDist) {
             const damage = effectivePower * b.damageMult;
@@ -1040,7 +1076,7 @@ if (phase === 3) {
                 let goldVal = Math.floor(
                   (e.enemyClass === 'BOSS'
                     ? 2000
-                    : 10 + zone.difficulty * 2) * diffSettings.goldMult,
+                    : 15 + zone.difficulty * 2) * diffSettings.goldMult,
                 );
                 if (isGoldRush) goldVal *= 2;
                 state.items.push({
@@ -1180,13 +1216,13 @@ if (phase === 3) {
 
     ctx.strokeStyle = zone.colors.grid;
     ctx.lineWidth = 2;
-    for (let x = 0; x < width; x += 60) {
+    for (let x = 0; x < width; x += 40) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, height);
       ctx.stroke();
     }
-    for (let y = 0; y < height; y += 60) {
+    for (let y = 0; y < height; y += 40) {
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(width, y);
@@ -1210,7 +1246,8 @@ if (phase === 3) {
     if (fighter.avatarImage && fighterImageRef.current) {
       ctx.save();
       ctx.beginPath();
-      ctx.arc(gameState.current.player.x, gameState.current.player.y, 10, 0, Math.PI * 2);
+      ctx.arc(gameState.current.player.x, gameState.current.player.y, 7, 0, Math.PI * 2);
+
       ctx.closePath();
       ctx.clip();
       ctx.drawImage(
@@ -1327,7 +1364,7 @@ if (phase === 3) {
                 />
               )}
               <div className="absolute inset-0 flex items-center px-2 gap-1">
-                <span className="text-[11px]">❤️</span>
+                <span className="text-[8px]">❤️</span>
                 <span className="text-[10px] font-bold text-white drop-shadow tracking-wide">
                   {Math.ceil(Math.max(0, hp))} / {maxHp}
                 </span>
@@ -1343,9 +1380,10 @@ if (phase === 3) {
           gameState.current.stats.fireRateMod > 0 ||
           gameState.current.stats.multiShot > 0) && (
           <div className="mt-2 flex flex-col gap-1 animate-in slide-in-from-left-5 fade-in duration-500">
-            <span className="text-[9px] text-slate-400 uppercase font-bold tracking-widest ml-1">
-              Active Buffs
-            </span>
+           <span className="text-[5px] sm:text-[7px] text-slate-400 uppercase font-bold tracking-widest ml-1">
+  Active Buffs
+</span>
+
             {equippedArtifacts.map((a, idx) => (
               <div
                 key={`art-${idx}`}
