@@ -1294,8 +1294,8 @@ if (phase === 3) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950">
-      <canvas ref={canvasRef} className="block w-full h-full touch-none" />
+    <div className="w-full min-h-[100dvh] bg-slate-950 flex flex-col relative overflow-hidden">
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full touch-none" />
 
       {/* HUD LEFT */}
       <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
