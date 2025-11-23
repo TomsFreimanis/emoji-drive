@@ -463,7 +463,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       const bossKey = zone.bossType ?? 'DEFAULT';
       const bossConfig = BOSS_TYPES[bossKey] ?? BOSS_TYPES.DEFAULT;
 
-      const bossBaseHp = 3500;
+      const bossBaseHp = 7500;
       const difficultyScale = 1 + zone.difficulty * 0.35;
       const survivalScale = 1 + timeElapsed / 60;
       let bossHp =
@@ -660,46 +660,28 @@ if (window.innerWidth < 500) {
           }
 
           // PHASE 2 — laser sweep
-          if (phase === 2) {
-            state.events.push('LASER WARNING');
-            setOverlayMessage('LASER SWEEP!');
-            const dangerX = enemy.x;
-            const dangerY = enemy.y + 160;
-            spawnFloatingText(dangerX, dangerY, '!', '#ff0000', 20);
+         // --- PHASE 1: Homing drones --- 
+if (phase === 1) {
+  if (Math.random() < 0.015) {   // neliela iespēja ik frame (~1x per sec)
+    // Spawns 2 homing mini drones
+    for (let i = 0; i < 2; i++) {
+      gameState.current.enemies.push({
+        x: enemy.x + (Math.random() * 80 - 40),
+        y: enemy.y + (Math.random() * 80 - 40),
+        vx: 0,
+        vy: 0,
+        size: 12,
+        hp: 20,
+        maxHp: 20,
+        enemyClass: 'DRONE',
+        spawnTimer: 0,
+      });
 
-            setTimeout(() => {
-              const angle = Math.atan2(state.player.y - enemy.y, state.player.x - enemy.x);
-              for (let iBeam = -3; iBeam <= 3; iBeam++) {
-                const a = angle + iBeam * 0.1;
-                state.bullets.push({
-                  x: enemy.x,
-                  y: enemy.y,
-                  vx: Math.cos(a) * 16,
-                  vy: Math.sin(a) * 16,
-                  life: 320,
-                  isEnemy: true,
-                  damageMult: 1.4 * bossConfig.damageMultiplier,
-                  color: '#ff0000',
-                  shape: 'ellipse',
-                });
-              }
-            }, 700);
+      spawnFloatingText(enemy.x, enemy.y - 40, 'DRONES DEPLOYED', '#ffaa00', 18);
+    }
+  }
+}
 
-            for (let m = 0; m < 2; m++) {
-              state.enemies.push({
-                x: enemy.x + (Math.random() * 200 - 100),
-                y: enemy.y + 60,
-                hp: 80 * zone.difficulty * diffSettings.hpMult,
-                maxHp: 80 * zone.difficulty * diffSettings.hpMult,
-                vx: 0,
-                vy: 0,
-                enemyClass: 'CHASER',
-                type: '👾',
-                size: 35,
-                lastAttack: 0,
-              });
-            }
-          }
 
           // PHASE 3 — enraged dash + shockwave ring
 // PHASE 3 — enraged charge (no teleport) + shockwave
