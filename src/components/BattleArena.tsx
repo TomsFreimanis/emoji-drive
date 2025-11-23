@@ -519,7 +519,10 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
 
     state.player.x += state.player.vx;
     state.player.y += state.player.vy;
-    state.player.x = Math.max(20, Math.min(width - 20, state.player.x));
+    const margin = 5;
+state.player.x = Math.max(margin, Math.min(width - margin, state.player.x));
+state.player.y = Math.max(margin, Math.min(height - margin, state.player.y));
+
     const worldHeight = height / renderScale;
 const worldWidth = width / renderScale;
 
