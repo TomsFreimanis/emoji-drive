@@ -352,7 +352,8 @@ export const Home: React.FC<HomeProps> = ({
       {/* Centered mobile wrapper */}
       <div className="relative z-10 w-full max-w-xl mx-auto flex flex-col h-[100dvh] px-3 sm:px-4">
         {/* Top Bar */}
-        <div className="flex justify-between items-center pt-3 pb-2">
+        <div className="flex justify-between items-center pt-2 pb-1 gap-1 flex-wrap max-w-full overflow-hidden">
+
           <div className="flex items-center gap-2">
             <div className="bg-yellow-400 p-1.5 rounded-lg shadow-lg shadow-yellow-500/20">
               <Zap className="text-slate-900 w-5 h-5" fill="currentColor" />

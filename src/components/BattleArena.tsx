@@ -195,10 +195,16 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
     gameState.current.lastShieldRegen = Date.now();
 
     const resize = () => {
-      const doc = document.documentElement;
-      canvas.width = doc.clientWidth;
-      canvas.height = doc.clientHeight;
-    };
+  const doc = document.documentElement;
+
+  const maxW = 400;
+  const maxH = 750;
+
+  canvas.width = Math.min(doc.clientWidth, maxW);
+  canvas.height = Math.min(doc.clientHeight, maxH);
+};
+
+
     window.addEventListener('resize', resize);
     resize();
 
