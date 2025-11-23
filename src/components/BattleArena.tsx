@@ -463,7 +463,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
       const bossKey = zone.bossType ?? 'DEFAULT';
       const bossConfig = BOSS_TYPES[bossKey] ?? BOSS_TYPES.DEFAULT;
 
-      const bossBaseHp = 7500;
+      const bossBaseHp = 10000;
       const difficultyScale = 1 + zone.difficulty * 0.35;
       const survivalScale = 1 + timeElapsed / 60;
       let bossHp =
@@ -661,52 +661,117 @@ if (window.innerWidth < 500) {
 
           // PHASE 2 — laser sweep
          // --- PHASE 1: Homing drones --- 
+// ====== NEW PHASE 1 (AGGRESSIVE MODE) ======
+// ===== PHASE 1 — aggressive mode (jauns "grūtais" sākums) =====
 if (phase === 1) {
-  if (Math.random() < 0.015) {   // neliela iespēja ik frame (~1x per sec)
-    // Spawns 2 homing mini drones
-    for (let i = 0; i < 2; i++) {
-      gameState.current.enemies.push({
-        x: enemy.x + (Math.random() * 80 - 40),
-        y: enemy.y + (Math.random() * 80 - 40),
-        vx: 0,
-        vy: 0,
-        size: 12,
-        hp: 20,
-        maxHp: 20,
-        enemyClass: 'DRONE',
-        spawnTimer: 0,
-      });
 
-      spawnFloatingText(enemy.x, enemy.y - 40, 'DRONES DEPLOYED', '#ffaa00', 18);
-    }
-  }
-}
+  // kustība uz spēlētāju (mazliet lēnāka nekā phase 3)
+  const dx = state.player.x - enemy.x;
+  const dy = state.player.y - enemy.y;
+  const angle = Math.atan2(dy, dx);
 
+  enemy.vx = Math.cos(angle) * 6;
+  enemy.vy = Math.sin(angle) * 6;
 
-          // PHASE 3 — enraged dash + shockwave ring
-// PHASE 3 — enraged charge (no teleport) + shockwave
-// PHASE 3 — enraged + mega šāviens + shockwave
-if (phase === 3) {
-  setOverlayMessage('ENRAGED!');
+  setScreenShake(2);
 
-  // 🔴 MEGA SHOT – lēna, liela bumba, kas insta-kill
-  if (Math.random() < 0.25) {
-    const megaAngle = Math.atan2(
-      state.player.y - enemy.y,
-      state.player.x - enemy.x
-    );
+  // neliels bullet spread
+  const count = 8 + zone.difficulty * 2;
+  const baseAngle = Date.now() / 500;
+
+  for (let k = 0; k < count; k++) {
+    const a = baseAngle + (Math.PI * 2 * k) / count;
 
     state.bullets.push({
       x: enemy.x,
       y: enemy.y,
-      vx: Math.cos(megaAngle) * 3,   // lēni
+      vx: Math.cos(a) * 6,
+      vy: Math.sin(a) * 6,
+      life: 200,
+      isEnemy: true,
+      damageMult: 1,
+      color: '#ff6600',
+      shape: 'circle',
+    });
+  }
+}
+
+
+
+         // ===== PHASE 2 — advanced mode (bullet hell + minions + fast chase) =====
+if (phase === 2) {
+
+  // ātrāks kustības ātrums
+  const dx = state.player.x - enemy.x;
+  const dy = state.player.y - enemy.y;
+  const angle = Math.atan2(dy, dx);
+
+  enemy.vx = Math.cos(angle) * 9;
+  enemy.vy = Math.sin(angle) * 9;
+
+  setScreenShake(3);
+
+  // bullet hell pattern
+  const count = 16 + zone.difficulty * 3;
+  const baseAngle = Date.now() / 300;
+
+  for (let k = 0; k < count; k++) {
+    const a = baseAngle + (Math.PI * 2 * k) / count;
+
+    state.bullets.push({
+      x: enemy.x,
+      y: enemy.y,
+      vx: Math.cos(a) * 8,
+      vy: Math.sin(a) * 8,
+      life: 240,
+      isEnemy: true,
+      damageMult: 1.5,
+      color: '#ff3300',
+      shape: 'circle',
+    });
+  }
+
+  // papildu minioni (CHASERS)
+  const spawnCount = 2 + Math.floor(zone.difficulty / 2);
+  for (let i = 0; i < spawnCount; i++) {
+    state.enemies.push({
+      x: enemy.x + (Math.random() * 200 - 100),
+      y: enemy.y + (Math.random() * 200 - 100),
+      hp: 120 * zone.difficulty,
+      maxHp: 120 * zone.difficulty,
+      vx: 0,
+      vy: 0,
+      enemyClass: 'CHASER',
+      type: '😈',
+      size: 24,
+      lastAttack: 0,
+    });
+  }
+}
+
+// ===== PHASE 3 — enraged + dash + shockwave + mega shot =====
+if (phase === 3) {
+
+  setOverlayMessage('ENRAGED!');
+
+  const dx = state.player.x - enemy.x;
+  const dy = state.player.y - enemy.y;
+
+  // ===== MEGA SHOT =====
+  if (Math.random() < 0.25) {
+    const megaAngle = Math.atan2(dy, dx);
+
+    state.bullets.push({
+      x: enemy.x,
+      y: enemy.y,
+      vx: Math.cos(megaAngle) * 3,   // ļoti lēns
       vy: Math.sin(megaAngle) * 3,
       life: 600,
       isEnemy: true,
-      damageMult: 9999,              // insta kill loģika apakšā
+      damageMult: 9999,             // insta kill
       color: '#ff0033',
       shape: 'circle',
-      size: 40,                      // pa īstam liela
+      size: 40,
       isMega: true,
     });
 
@@ -714,18 +779,19 @@ if (phase === 3) {
     playSound('explosion');
   }
 
-  // ⚡ īss “dash” virzienā uz spēlētāju
+  // ===== DASH uz playeru =====
   const dashAngle = Math.atan2(dy, dx);
   const chargeSpeed = 10;
+
   enemy.vx += Math.cos(dashAngle) * chargeSpeed;
   enemy.vy += Math.sin(dashAngle) * chargeSpeed;
 
-  // 💥 neliels laika nobīdes shockwave ap bossu
+  // ===== SHOCKWAVE pēc nobīdes =====
   setTimeout(() => {
-    if (!gameState.current.isRunning) return; // ja pa to laiku spēle beigusies
+    if (!gameState.current.isRunning) return;
 
     playSound('explosion');
-    setScreenShake((prev) => prev + 4);
+    setScreenShake((prev) => prev + 5);
     createParticles(enemy.x, enemy.y, 'purple', 25);
 
     for (let a = 0; a < Math.PI * 2; a += 0.35) {
@@ -736,13 +802,14 @@ if (phase === 3) {
         vy: Math.sin(a) * 8,
         life: 260,
         isEnemy: true,
-        damageMult: 0.7 * bossConfig.damageMultiplier,
+        damageMult: 1 * bossConfig.damageMultiplier,
         color: '#ff00ff',
         shape: 'circle',
       });
     }
   }, 350);
 }
+
 
 
 
