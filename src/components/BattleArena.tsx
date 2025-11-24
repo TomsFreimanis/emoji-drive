@@ -510,8 +510,11 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
     state.player.x += state.player.vx;
     state.player.y += state.player.vy;
     // allow player to move all the way to edges (no invisible wall)
-    state.player.x = Math.max(0, Math.min(width, state.player.x));
-    state.player.y = Math.max(0, Math.min(height, state.player.y));
+    // BLOĶĒ SPĒLĒTĀJU LAUKA IEKŠIENĒ
+const margin = 30;
+state.player.x = Math.max(margin, Math.min(width - margin, state.player.x));
+state.player.y = Math.max(margin, Math.min(height - margin, state.player.y));
+
 
     // Enemy spawn (non-boss)
     if (!state.bossSpawned) {
@@ -524,22 +527,25 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
         const side = Math.floor(Math.random() * 4);
         let ex = 0,
           ey = 0;
-        if (side === 0) {
-          ex = Math.random() * width;
-          ey = -40;
-        }
-        if (side === 1) {
-          ex = width + 40;
-          ey = Math.random() * height;
-        }
-        if (side === 2) {
-          ex = Math.random() * width;
-          ey = height + 40;
-        }
-        if (side === 3) {
-          ex = -40;
-          ey = Math.random() * height;
-        }
+       const spawnMargin = 10;
+
+if (side === 0) { 
+  ex = Math.random() * width; 
+  ey = spawnMargin; 
+}
+if (side === 1) { 
+  ex = width - spawnMargin; 
+  ey = Math.random() * height; 
+}
+if (side === 2) { 
+  ex = Math.random() * width; 
+  ey = height - spawnMargin; 
+}
+if (side === 3) { 
+  ex = spawnMargin; 
+  ey = Math.random() * height; 
+}
+
 
         const rand = Math.random();
         let enemyClass: EnemyType = 'CHASER';
@@ -665,93 +671,6 @@ if (window.innerWidth < 500) {
 // ===== PHASE 1 — aggressive mode (jauns "grūtais" sākums) =====
 if (phase === 1) {
 
-  // kustība uz spēlētāju (mazliet lēnāka nekā phase 3)
-  const dx = state.player.x - enemy.x;
-  const dy = state.player.y - enemy.y;
-  const angle = Math.atan2(dy, dx);
-
-  enemy.vx = Math.cos(angle) * 6;
-  enemy.vy = Math.sin(angle) * 6;
-
-  setScreenShake(2);
-
-  // neliels bullet spread
-  const count = 8 + zone.difficulty * 2;
-  const baseAngle = Date.now() / 500;
-
-  for (let k = 0; k < count; k++) {
-    const a = baseAngle + (Math.PI * 2 * k) / count;
-
-    state.bullets.push({
-      x: enemy.x,
-      y: enemy.y,
-      vx: Math.cos(a) * 6,
-      vy: Math.sin(a) * 6,
-      life: 200,
-      isEnemy: true,
-      damageMult: 1,
-      color: '#ff6600',
-      shape: 'circle',
-    });
-  }
-}
-
-
-
-         // ===== PHASE 2 — advanced mode (bullet hell + minions + fast chase) =====
-if (phase === 2) {
-
-  // ātrāks kustības ātrums
-  const dx = state.player.x - enemy.x;
-  const dy = state.player.y - enemy.y;
-  const angle = Math.atan2(dy, dx);
-
-  enemy.vx = Math.cos(angle) * 9;
-  enemy.vy = Math.sin(angle) * 9;
-
-  setScreenShake(3);
-
-  // bullet hell pattern
-  const count = 16 + zone.difficulty * 3;
-  const baseAngle = Date.now() / 300;
-
-  for (let k = 0; k < count; k++) {
-    const a = baseAngle + (Math.PI * 2 * k) / count;
-
-    state.bullets.push({
-      x: enemy.x,
-      y: enemy.y,
-      vx: Math.cos(a) * 8,
-      vy: Math.sin(a) * 8,
-      life: 240,
-      isEnemy: true,
-      damageMult: 1.5,
-      color: '#ff3300',
-      shape: 'circle',
-    });
-  }
-
-  // papildu minioni (CHASERS)
-  const spawnCount = 2 + Math.floor(zone.difficulty / 2);
-  for (let i = 0; i < spawnCount; i++) {
-    state.enemies.push({
-      x: enemy.x + (Math.random() * 200 - 100),
-      y: enemy.y + (Math.random() * 200 - 100),
-      hp: 120 * zone.difficulty,
-      maxHp: 120 * zone.difficulty,
-      vx: 0,
-      vy: 0,
-      enemyClass: 'CHASER',
-      type: '😈',
-      size: 24,
-      lastAttack: 0,
-    });
-  }
-}
-
-// ===== PHASE 3 — enraged + dash + shockwave + mega shot =====
-if (phase === 3) {
-
   setOverlayMessage('ENRAGED!');
 
   const dx = state.player.x - enemy.x;
@@ -809,6 +728,199 @@ if (phase === 3) {
     }
   }, 350);
 }
+
+
+         // ===== PHASE 2 — advanced mode (bullet hell + minions + fast chase) =====
+if (phase === 2) {
+
+  // ātrāks kustības ātrums
+  const dx = state.player.x - enemy.x;
+  const dy = state.player.y - enemy.y;
+  const angle = Math.atan2(dy, dx);
+
+  enemy.vx = Math.cos(angle) * 9;
+  enemy.vy = Math.sin(angle) * 9;
+
+  setScreenShake(3);
+
+  // bullet hell pattern
+  const count = 16 + zone.difficulty * 3;
+  const baseAngle = Date.now() / 300;
+
+  for (let k = 0; k < count; k++) {
+    const a = baseAngle + (Math.PI * 2 * k) / count;
+
+    state.bullets.push({
+      x: enemy.x,
+      y: enemy.y,
+      vx: Math.cos(a) * 8,
+      vy: Math.sin(a) * 8,
+      life: 240,
+      isEnemy: true,
+      damageMult: 1.5,
+      color: '#ff3300',
+      shape: 'circle',
+    });
+  }
+
+  // papildu minioni (CHASERS)
+  const spawnCount = 2 + Math.floor(zone.difficulty / 2);
+  for (let i = 0; i < spawnCount; i++) {
+    state.enemies.push({
+      x: enemy.x + (Math.random() * 200 - 100),
+      y: enemy.y + (Math.random() * 200 - 100),
+      hp: 120 * zone.difficulty,
+      maxHp: 120 * zone.difficulty,
+      vx: 0,
+      vy: 0,
+      enemyClass: 'CHASER',
+      type: '😈',
+      size: 24,
+      lastAttack: 0,
+    });
+  }
+}
+
+// ===== PHASE 3 — enraged + dash + shockwave + mega shot =====
+if (phase === 3) {
+  setOverlayMessage('ENRAGED!');
+  const dx = state.player.x - enemy.x;
+  const dy = state.player.y - enemy.y;
+  const angle = Math.atan2(dy, dx);
+
+  // ======== BOSSA ENRAGED MODIFIERS ========
+  enemy.speedMultiplier = 2.0;        // boss 2x ātrāks
+  enemy.damageMultiplier = 2.0;       // boss 2x sāpīgāks
+  bossConfig.damageMultiplier = 2.0;
+
+  // =====================================================
+  // (1) MEGA SHOT — tagad biežāk un divi vienlaicīgi
+  // =====================================================
+  if (Math.random() < 0.40) {   // 40% chance katrā frame ciklā
+    for (let i = -1; i <= 1; i++) {
+      const a = angle + i * 0.25;
+
+      state.bullets.push({
+        x: enemy.x,
+        y: enemy.y,
+        vx: Math.cos(a) * 4,
+        vy: Math.sin(a) * 4,
+        life: 900,
+        isEnemy: true,
+        damageMult: 9999,
+        color: '#ff0033',
+        shape: 'circle',
+        size: 70,            // 70px = milzīgs
+        isMega: true,
+      });
+    }
+
+    spawnFloatingText(enemy.x, enemy.y, 'MEGA SHOT!!', '#ff0033', 36);
+    playSound('explosion');
+  }
+
+  // =====================================================
+  // (2) TRIPLE DASH uz spēlētāju
+  // =====================================================
+  if (!enemy._dashCooldown || Date.now() - enemy._dashCooldown > 900) {
+    enemy._dashCooldown = Date.now();
+
+    for (let i = 0; i < 3; i++) {
+      setTimeout(() => {
+        const da = Math.atan2(
+          state.player.y - enemy.y,
+          state.player.x - enemy.x
+        );
+
+        enemy.vx = Math.cos(da) * 20;   // super ātrs dash
+        enemy.vy = Math.sin(da) * 20;
+
+       
+        setScreenShake((prev) => prev + 5);
+      }, i * 180);
+    }
+  }
+
+  // =====================================================
+  // (3) DOUBLE SHOCKWAVE (2 secīgi viļņi)
+  // =====================================================
+  if (!enemy._shockwaveCD || Date.now() - enemy._shockwaveCD > 1500) {
+    enemy._shockwaveCD = Date.now();
+
+    const doShockwave = (delay) => {
+      setTimeout(() => {
+        playSound('explosion');
+        createParticles(enemy.x, enemy.y, 'purple', 25);
+
+        for (let a = 0; a < Math.PI * 2; a += 0.25) {
+          state.bullets.push({
+            x: enemy.x,
+            y: enemy.y,
+            vx: Math.cos(a) * 10,
+            vy: Math.sin(a) * 10,
+            life: 300,
+            isEnemy: true,
+            damageMult: 2,
+            color: '#ff00ff',
+            shape: 'circle',
+            size: 14,
+          });
+        }
+      }, delay);
+    };
+
+    doShockwave(0);
+    doShockwave(300);
+  }
+
+  // =====================================================
+  // (4) BULLET WALLS — sienas, kur jāatrod caurums
+  // =====================================================
+  if (Math.random() < 0.25) {
+    const startAngle = Math.random() * Math.PI * 2;
+
+    for (let i = 0; i < 16; i++) {
+      const a = startAngle + (i * Math.PI * 2) / 16;
+
+      state.bullets.push({
+        x: enemy.x,
+        y: enemy.y,
+        vx: Math.cos(a) * 6,
+        vy: Math.sin(a) * 6,
+        life: 500,
+        isEnemy: true,
+        color: '#ff66cc',
+        shape: 'circle',
+        size: 12,
+      });
+    }
+
+    
+  }
+
+  // =====================================================
+  // (5) PURPLE ORB STORM — ekrānu piepilda lēni purple balli
+  // =====================================================
+  if (Math.random() < 0.35) {
+    const stormCount = 6;
+
+    for (let i = 0; i < stormCount; i++) {
+      const a = Math.random() * Math.PI * 2;
+
+      state.bullets.push({
+        x: enemy.x,
+        y: enemy.y,
+        vx: Math.cos(a) * (2 + Math.random() * 2),
+        vy: Math.sin(a) * (2 + Math.random() * 2),
+        life: 800,
+        isEnemy: true,
+        color: '#bb33ff',
+        size: 20,
+      });
+    }
+  }
+}
+
 
 
 
@@ -1114,6 +1226,7 @@ if (phase === 3) {
               const rand = Math.random();
               if (rand < 0.3) {
                 state.items.push({
+                  
                   x: e.x,
                   y: e.y,
                   type: Math.random() > 0.5 ? 'RATE' : 'MULTI',
@@ -1137,15 +1250,26 @@ if (phase === 3) {
                     ? 2000
                     : 15 + zone.difficulty * 2) * diffSettings.goldMult,
                 );
-                if (isGoldRush) goldVal *= 2;
-                state.items.push({
-                  x: e.x,
-                  y: e.y,
-                  type: 'GOLD',
-                  icon: '💰',
-                  life: 600,
-                  val: goldVal,
-                });
+               if (isGoldRush) goldVal *= 2;
+
+// ==== CENTER BIAS LOOT ====
+const centerBias = 0.15;       // 0.0 - 0.3 iesaku
+const cx = width / 2;
+const cy = height / 2;
+
+const lootX = e.x + (cx - e.x) * centerBias;
+const lootY = e.y + (cy - e.y) * centerBias;
+// ============================
+
+state.items.push({
+  x: lootX,
+  y: lootY,
+  type: 'GOLD',
+  icon: '💰',
+  life: 600,
+  val: goldVal,
+});
+
               }
 
               if (e.enemyClass === 'BOSS') {
@@ -1413,7 +1537,8 @@ if (phase === 3) {
             )}
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1 scale-[0.95] origin-top-left sm:scale-100">
+
             <div className="h-5 w-40 bg-slate-900/80 rounded-full border border-white/10 overflow-hidden relative backdrop-blur-md">
               <div
                 className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-green-600 to-green-400 transition-all duration-300"
@@ -1441,39 +1566,42 @@ if (phase === 3) {
         {(equippedArtifacts.length > 0 ||
           gameState.current.stats.fireRateMod > 0 ||
           gameState.current.stats.multiShot > 0) && (
-          <div className="mt-2 flex flex-col gap-1 animate-in slide-in-from-left-5 fade-in duration-500">
-           <span className="text-[5px] sm:text-[7px] text-slate-400 uppercase font-bold tracking-widest ml-1">
-  Active Buffs
-</span>
+          <div className="mt-2 flex flex-col gap-[2px] animate-in slide-in-from-left-5 fade-in duration-500 scale-[0.55] sm:scale-100 origin-top-left">
+  <span className="text-[4px] sm:text-[7px] text-slate-400 uppercase font-bold tracking-widest ml-1">
+    Active Buffs
+  </span>
 
-            {equippedArtifacts.map((a, idx) => (
-              <div
-                key={`art-${idx}`}
-                className="flex items-center gap-2 bg-black/40 px-1.5 py-1 rounded-lg border border-white/10 backdrop-blur-sm w-fit"
-              >
-                <span className="text-xl">{a.icon}</span>
-                <span className="text-[10px] text-white font-bold">
-                  {getArtifactShortDesc(a)}
-                </span>
-              </div>
-            ))}
-            {gameState.current.stats.fireRateMod > 0 && (
-              <div className="flex items-center gap-2 bg-yellow-900/40 px-1.5 py-1 rounded-lg border border-yellow-500/30 backdrop-blur-sm w-fit">
-                <span className="text-xl">⚡</span>
-                <span className="text-[10px] text-yellow-200 font-bold">
-                  Fire Rate +{gameState.current.stats.fireRateMod}
-                </span>
-              </div>
-            )}
-            {gameState.current.stats.multiShot > 0 && (
-              <div className="flex items-center gap-2 bg-blue-900/40 px-1.5 py-1 rounded-lg border border-blue-500/30 backdrop-blur-sm w-fit">
-                <span className="text-xl">⭐</span>
-                <span className="text-[10px] text-blue-200 font-bold">
-                  Multishot +{gameState.current.stats.multiShot}
-                </span>
-              </div>
-            )}
-          </div>
+  {equippedArtifacts.map((a, idx) => (
+    <div
+      key={`art-${idx}`}
+      className="flex items-center gap-1 bg-black/40 px-1 py-[2px] rounded-md border border-white/10 backdrop-blur-sm w-fit"
+    >
+      <span className="text-sm">{a.icon}</span>
+      <span className="text-[7px] text-white font-bold leading-none">
+        {getArtifactShortDesc(a)}
+      </span>
+    </div>
+  ))}
+
+  {gameState.current.stats.fireRateMod > 0 && (
+    <div className="flex items-center gap-1 bg-yellow-900/40 px-1 py-[2px] rounded-md border border-yellow-500/30 backdrop-blur-sm w-fit">
+      <span className="text-sm">⚡</span>
+      <span className="text-[7px] text-yellow-200 font-bold leading-none">
+        Fire Rate +{gameState.current.stats.fireRateMod}
+      </span>
+    </div>
+  )}
+
+  {gameState.current.stats.multiShot > 0 && (
+    <div className="flex items-center gap-1 bg-blue-900/40 px-1 py-[2px] rounded-md border border-blue-500/30 backdrop-blur-sm w-fit">
+      <span className="text-sm">⭐</span>
+      <span className="text-[7px] text-blue-200 font-bold leading-none">
+        Multishot +{gameState.current.stats.multiShot}
+      </span>
+    </div>
+  )}
+</div>
+
         )}
       </div>
 
